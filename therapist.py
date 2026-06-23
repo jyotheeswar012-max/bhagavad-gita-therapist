@@ -10,21 +10,20 @@ def configure_gemini():
         api_key = st.secrets["GEMINI_API_KEY"]
         if api_key:
             genai.configure(api_key=api_key)
-            return True
-    except Exception:
+            return True, None
+    except Exception as e:
         pass
 
     # 2. Try environment variable (local dev)
     api_key = os.getenv("GEMINI_API_KEY", "")
     if api_key and api_key != "your_gemini_api_key_here":
         genai.configure(api_key=api_key)
-        return True
+        return True, None
 
-    return False
+    return False, "GEMINI_API_KEY not found in Streamlit Secrets or environment."
 
 
 def find_relevant_shlokas(user_input: str, top_n: int = 2) -> list:
-    """Keyword-based shloka matcher."""
     user_lower = user_input.lower()
     scores = {}
     for shloka in SHLOKAS:
@@ -39,7 +38,6 @@ def find_relevant_shlokas(user_input: str, top_n: int = 2) -> list:
 
 
 def get_gita_guidance(user_input: str) -> dict:
-    """Get AI-powered Gita guidance for the user's problem."""
     shlokas = find_relevant_shlokas(user_input)
 
     shloka_context = ""
@@ -66,30 +64,17 @@ Provide a warm, empathetic response that:
 Tone: Warm, wise, non-preachy. Like a wise friend, not a lecture.
 Language: Simple English. No jargon. Max 300 words."""
 
-    gemini_available = configure_gemini()
-    ai_response = ""
+    gemini_available, config_error = configure_gemini()
 
     if gemini_available:
         try:
-            model = genai.GenerativeModel("gemini-1.5-flash")
+            model = genai.GenerativeModel("gemini-2.0-flash")
             response = model.generate_content(prompt)
             ai_response = response.text
-        except Exception:
-            ai_response = _fallback_response()
+        except Exception as e:
+            # Show the REAL error so we can debug
+            ai_response = f"❌ Gemini API Error: {str(e)}"
     else:
-        ai_response = _fallback_response()
+        ai_response = f"❌ API Key Error: {config_error}\n\nPlease check Streamlit Secrets."
 
     return {"shlokas": shlokas, "guidance": ai_response}
-
-
-def _fallback_response() -> str:
-    return (
-        "The Bhagavad Gita offers timeless wisdom for moments like these.\n\n"
-        "What you're feeling is deeply human — and Krishna's teachings remind us "
-        "that every challenge carries within it the seed of growth.\n\n"
-        "Reflect on these shlokas and let them guide you toward:\n"
-        "1. ✅ Focusing on your actions, not the outcomes\n"
-        "2. ✅ Accepting impermanence with grace\n"
-        "3. ✅ Trusting the process of life\n\n"
-        "🕉️ Wisdom from the eternal Bhagavad Gita."
-    )

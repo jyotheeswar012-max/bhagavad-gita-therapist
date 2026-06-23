@@ -5,7 +5,6 @@ from gita_data import SHLOKAS
 
 
 def get_groq_client():
-    # 1. Try Streamlit secrets
     try:
         api_key = st.secrets["GROQ_API_KEY"]
         if api_key:
@@ -13,7 +12,6 @@ def get_groq_client():
     except Exception:
         pass
 
-    # 2. Try environment variable
     api_key = os.getenv("GROQ_API_KEY", "")
     if api_key:
         return Groq(api_key=api_key), None
@@ -63,22 +61,31 @@ Tone: Warm, wise, non-preachy. Like a wise friend, not a lecture.
 Language: Simple English. No jargon. Max 300 words."""
 
     client, error = get_groq_client()
-
     if not client:
         return {"shlokas": shlokas, "guidance": f"❌ {error}"}
 
-    try:
-        chat_completion = client.chat.completions.create(
-            messages=[
-                {"role": "system", "content": "You are a compassionate Bhagavad Gita AI therapist."},
-                {"role": "user", "content": prompt}
-            ],
-            model="llama3-8b-8192",
-            max_tokens=400,
-            temperature=0.7,
-        )
-        ai_response = chat_completion.choices[0].message.content
-    except Exception as e:
-        ai_response = f"❌ Groq API Error: {str(e)}"
+    # Try models in order
+    models_to_try = [
+        "llama-3.3-70b-versatile",
+        "llama-3.1-8b-instant",
+        "mixtral-8x7b-32768",
+    ]
 
-    return {"shlokas": shlokas, "guidance": ai_response}
+    for model_name in models_to_try:
+        try:
+            chat_completion = client.chat.completions.create(
+                messages=[
+                    {"role": "system", "content": "You are a compassionate Bhagavad Gita AI therapist."},
+                    {"role": "user", "content": prompt}
+                ],
+                model=model_name,
+                max_tokens=400,
+                temperature=0.7,
+            )
+            return {"shlokas": shlokas, "guidance": chat_completion.choices[0].message.content}
+        except Exception as e:
+            if "decommissioned" in str(e) or "429" in str(e):
+                continue
+            return {"shlokas": shlokas, "guidance": f"❌ Groq API Error: {str(e)}"}
+
+    return {"shlokas": shlokas, "guidance": "⚠️ All models unavailable right now. Please try again in a moment."}

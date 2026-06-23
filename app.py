@@ -3,7 +3,6 @@ from therapist import get_gita_guidance
 from gita_data import SHLOKAS, CHAPTER_NAMES
 from music import MUSIC_TRACKS
 import os
-import urllib.request
 
 st.set_page_config(
     page_title="Bhagavad Gita AI Therapist",
@@ -50,16 +49,6 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 
-@st.cache_data(show_spinner=False)
-def fetch_audio(url: str) -> bytes | None:
-    try:
-        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
-        with urllib.request.urlopen(req, timeout=15) as r:
-            return r.read()
-    except Exception as e:
-        return None
-
-
 # ── Sidebar ────────────────────────────────────────────────────────────────────
 with st.sidebar:
     st.markdown("## 🎶 Background Music")
@@ -68,20 +57,20 @@ with st.sidebar:
         list(MUSIC_TRACKS.keys()),
         index=0,
     )
-    track_url = MUSIC_TRACKS[selected_track]
+    track_path = MUSIC_TRACKS[selected_track]
 
-    if track_url:
-        with st.spinner("🎵 Loading audio..."):
-            audio_bytes = fetch_audio(track_url)
-        if audio_bytes:
+    if track_path:
+        try:
+            with open(track_path, "rb") as f:
+                audio_bytes = f.read()
             st.markdown(
                 f"<p style='color:#ffd700; font-size:13px;'>▶️ Now playing: {selected_track}</p>",
                 unsafe_allow_html=True,
             )
             st.audio(audio_bytes, format="audio/mp3", loop=True)
             st.caption("🔉 Adjust volume using the player")
-        else:
-            st.error("❌ Audio failed to load. Try another track.")
+        except FileNotFoundError:
+            st.error("❌ Audio file not found in repo.")
     else:
         st.markdown(
             "<p style='color:#aaa; font-size:13px;'>🔇 Music is off.</p>",

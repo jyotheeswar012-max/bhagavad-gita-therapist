@@ -2,7 +2,6 @@ import streamlit as st
 from therapist import get_gita_guidance
 from gita_data import SHLOKAS, CHAPTER_NAMES
 import os
-import base64
 
 st.set_page_config(
     page_title="Bhagavad Gita AI Therapist",
@@ -28,13 +27,12 @@ st.markdown("""
         padding: 22px;
         margin: 12px 0;
     }
-    .chapter-card {
+    .music-player {
         background: rgba(255,140,0,0.08);
-        border: 1px solid #ff8c0044;
-        border-radius: 10px;
-        padding: 10px 14px;
-        margin: 4px 0;
-        font-size: 13px;
+        border: 1px solid #ff8c0066;
+        border-radius: 12px;
+        padding: 12px;
+        margin: 8px 0;
     }
     h1, h2, h3 { color: #ffd700 !important; }
     p { color: #f0e6d3; }
@@ -53,43 +51,57 @@ st.markdown("""
         font-size: 16px !important;
     }
     div[data-testid="stSidebar"] { background-color: #1a0800 !important; }
-    .stSelectbox select { background-color: #2d1200 !important; color: #fff !important; }
-    .stSlider { color: #ffd700; }
 </style>
 """, unsafe_allow_html=True)
 
-# ── Background Music via HTML Audio ───────────────────────────────────────────
-MUSIC_URLS = {
-    "🕉️ Om Chanting (Peaceful)": "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3",
-    "🎵 Flute Meditation": "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3",
-    "🕔 Temple Bells": "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3",
-    "🌿 Nature & Birds": "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3",
+# ── Music Config (YouTube embed IDs — all free, publicly available) ────────────────
+MUSIC_OPTIONS = {
+    "🕉️ Om Chanting (108 times)": "https://www.youtube.com/embed/gessOIVFJ4M?autoplay=1&loop=1&playlist=gessOIVFJ4M&controls=1&mute=0",
+    "🎵 Krishna Flute Meditation": "https://www.youtube.com/embed/3dIoJbXoFUs?autoplay=1&loop=1&playlist=3dIoJbXoFUs&controls=1&mute=0",
+    "🕔 Temple Bells & Chants": "https://www.youtube.com/embed/UPFSEbuEEqg?autoplay=1&loop=1&playlist=UPFSEbuEEqg&controls=1&mute=0",
+    "🌿 Peaceful Nature Sounds": "https://www.youtube.com/embed/1ZYbU82GVz4?autoplay=1&loop=1&playlist=1ZYbU82GVz4&controls=1&mute=0",
+    "🎶 Gayatri Mantra Chanting": "https://www.youtube.com/embed/n4BO4UIQSiU?autoplay=1&loop=1&playlist=n4BO4UIQSiU&controls=1&mute=0",
     "🔇 No Music": "",
 }
 
+# ── Sidebar ────────────────────────────────────────────────────────────────────
 with st.sidebar:
     st.markdown("## 🎶 Background Music")
-    selected_music = st.selectbox("Choose ambient sound:", list(MUSIC_URLS.keys()), index=0)
-    music_volume = st.slider("Volume", 0, 100, 30, step=5)
-    music_url = MUSIC_URLS[selected_music]
+    st.caption("Select a track — player appears below")
+    selected_music = st.selectbox(
+        "", list(MUSIC_OPTIONS.keys()), index=0, label_visibility="collapsed"
+    )
+    music_url = MUSIC_OPTIONS[selected_music]
 
     if music_url:
-        st.markdown(f"""
-        <audio id="bgMusic" autoplay loop style="display:none">
-            <source src="{music_url}" type="audio/mpeg">
-        </audio>
-        <script>
-            var audio = document.getElementById('bgMusic');
-            if (audio) {{
-                audio.volume = {music_volume / 100};
-                audio.play().catch(e => console.log('Autoplay blocked:', e));
-            }}
-        </script>
-        <p style='color:#ffd700; font-size:13px;'>Now playing: {selected_music}</p>
-        <p style='color:#888; font-size:11px;'>Note: Click anywhere on the page if music doesn't start (browser autoplay policy).</p>
-        """, unsafe_allow_html=True)
+        st.markdown(
+            f"""
+            <div class='music-player'>
+                <p style='color:#ffd700; font-size:13px; margin-bottom:6px;'>
+                    Now playing: {selected_music}
+                </p>
+                <iframe
+                    width="100%"
+                    height="80"
+                    src="{music_url}"
+                    frameborder="0"
+                    allow="autoplay; encrypted-media"
+                    allowfullscreen
+                    style="border-radius:8px;"
+                ></iframe>
+                <p style='color:#888; font-size:11px; margin-top:6px;'>
+                    ℹ️ Use the player controls to adjust volume.
+                    If video shows, minimize it — audio will continue.
+                </p>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
     else:
-        st.markdown("<p style='color:#888; font-size:13px;'>Music is off.</p>", unsafe_allow_html=True)
+        st.markdown(
+            "<p style='color:#888; font-size:13px;'>🔇 Music is off.</p>",
+            unsafe_allow_html=True,
+        )
 
     st.markdown("---")
     st.markdown("## 🔐 Gemini API Key")
@@ -104,7 +116,8 @@ with st.sidebar:
     selected_chapter = st.selectbox(
         "Jump to chapter:",
         options=[""] + list(CHAPTER_NAMES.keys()),
-        format_func=lambda x: "Select a chapter..." if x == "" else f"Ch {x}: {CHAPTER_NAMES[x].split(' — ')[0]}"
+        format_func=lambda x: "Select a chapter..." if x == "" else f"Ch {x}: {CHAPTER_NAMES[x].split(' — ')[0]}",
+        key="chapter_select"
     )
     if selected_chapter:
         chapter_shlokas = [s for s in SHLOKAS if s["chapter"] == selected_chapter]
@@ -120,8 +133,10 @@ with st.sidebar:
     st.markdown(f"**Total Shlokas:** {len(SHLOKAS)} across 18 chapters  \n**Themes:** 100+")
 
 # ── Header ─────────────────────────────────────────────────────────────────────
-st.markdown("<h1 style='text-align:center; font-size:2.5rem;'>🕉️ Bhagavad Gita AI Therapist</h1>",
-            unsafe_allow_html=True)
+st.markdown(
+    "<h1 style='text-align:center; font-size:2.5rem;'>🕉️ Bhagavad Gita AI Therapist</h1>",
+    unsafe_allow_html=True,
+)
 st.markdown(
     "<p style='text-align:center; color:#ffd700; font-size:17px;'>"
     "Share your struggles. Receive ancient wisdom. Find modern clarity."
@@ -131,12 +146,11 @@ st.markdown(
 st.markdown("---")
 
 # ── Stats Bar ──────────────────────────────────────────────────────────────────
-col1, col2, col3, col4 = st.columns(4)
-col1.metric("📜 Shlokas", len(SHLOKAS))
-col2.metric("📖 Chapters", 18)
-col3.metric("🎭 Themes", "100+")
-col4.metric("🌐 Live", "Yes")
-
+c1, c2, c3, c4 = st.columns(4)
+c1.metric("📜 Shlokas", len(SHLOKAS))
+c2.metric("📖 Chapters", 18)
+c3.metric("🎭 Themes", "100+")
+c4.metric("🌐 Live", "Yes")
 st.markdown("---")
 
 # ── Emotion Quick-Select ───────────────────────────────────────────────────────
@@ -155,7 +169,7 @@ EMOTIONS = {
     "🙏 Lonely":      "I feel very lonely and like nobody truly understands me",
     "🙊 Jealous":     "I am feeling jealous and always comparing myself to others",
     "😫 Burnout":     "I am completely burned out, exhausted, and overwhelmed",
-    "💥 Angry/Rage":  "I have uncontrolled anger and lust that I cannot manage",
+    "💥 Rage":        "I have uncontrolled anger and rage that I cannot manage",
 }
 
 if "preset" not in st.session_state:
@@ -167,7 +181,7 @@ for i, (label, val) in enumerate(EMOTIONS.items()):
         st.session_state.preset = val
 
 # ── Text Input ─────────────────────────────────────────────────────────────────
-st.markdown("### ✏️ Describe your situation in detail")
+st.markdown("### ✏️ Describe your situation")
 user_input = st.text_area(
     "",
     value=st.session_state.preset,
@@ -191,7 +205,8 @@ if seek:
         st.markdown("---")
         st.markdown("### 📜 Shlokas for Your Situation")
         for s in result["shlokas"]:
-            st.markdown(f"""
+            st.markdown(
+                f"""
             <div class='shloka-box'>
                 <h4 style='color:#ffd700; margin-top:0;'>
                     🕉️ Chapter {s['chapter']}, Verse {s['verse']}
@@ -204,16 +219,21 @@ if seek:
                 <hr style='border-color:#4a1e00;'/>
                 <p style='color:#f0e6d3;'><b>Meaning:</b> {s['meaning']}</p>
             </div>
-            """, unsafe_allow_html=True)
+            """,
+                unsafe_allow_html=True,
+            )
 
         st.markdown("### 🧘 Krishna's Guidance for You")
-        st.markdown(f"""
+        st.markdown(
+            f"""
         <div class='guidance-box'>
             <p style='color:#e0e0e0; line-height:1.9; font-size:15px;'>
                 {result['guidance'].replace(chr(10), '<br>')}
             </p>
         </div>
-        """, unsafe_allow_html=True)
+        """,
+            unsafe_allow_html=True,
+        )
 
         st.markdown("---")
         st.markdown(

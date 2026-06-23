@@ -1,7 +1,9 @@
 import streamlit as st
 from therapist import get_gita_guidance
 from gita_data import SHLOKAS, CHAPTER_NAMES
+from music import MUSIC_TRACKS
 import os
+import requests
 
 st.set_page_config(
     page_title="Bhagavad Gita AI Therapist",
@@ -44,20 +46,21 @@ st.markdown("""
         font-size: 16px !important;
     }
     div[data-testid="stSidebar"] { background-color: #1a0800 !important; }
-    /* Hide audio track label */
-    .stAudio { border-radius: 10px; }
 </style>
 """, unsafe_allow_html=True)
 
-# ── Music tracks (Internet Archive — public domain devotional audio) ────────────────
-MUSIC_TRACKS = {
-    "🔇 No Music": None,
-    "🕉️ Om Chanting": "https://ia800905.us.archive.org/18/items/OmChanting108Times/Om%20Chanting%20108%20Times.mp3",
-    "🎵 Krishna Flute": "https://ia802905.us.archive.org/8/items/KrishnaFluteMeditation/Krishna%20Flute%20Meditation.mp3",
-    "🌿 Nature & Rain": "https://ia800201.us.archive.org/8/items/RainSounds_201606/rain-sounds.mp3",
-    "🕔 Temple Bells": "https://ia801407.us.archive.org/20/items/templeBells/temple-bells.mp3",
-    "🎶 Gayatri Mantra": "https://ia902908.us.archive.org/22/items/GayatriMantra_201504/Gayatri%20Mantra.mp3",
-}
+
+@st.cache_data(show_spinner=False)
+def load_audio_bytes(url: str) -> bytes | None:
+    """Fetch audio bytes and cache so re-runs don’t re-download."""
+    try:
+        r = requests.get(url, timeout=10)
+        if r.status_code == 200:
+            return r.content
+    except Exception:
+        pass
+    return None
+
 
 # ── Sidebar ────────────────────────────────────────────────────────────────────
 with st.sidebar:
@@ -70,14 +73,22 @@ with st.sidebar:
     track_url = MUSIC_TRACKS[selected_track]
 
     if track_url:
-        st.markdown(f"<p style='color:#ffd700; font-size:13px;'>Now playing: {selected_track}</p>",
-                    unsafe_allow_html=True)
-        # Native Streamlit audio player — clean, no video, just audio
-        st.audio(track_url, format="audio/mp3", loop=True)
-        st.caption("💡 Press ▶️ to start. Adjust volume with the slider.")
+        with st.spinner("Loading audio..."):
+            audio_bytes = load_audio_bytes(track_url)
+        if audio_bytes:
+            st.markdown(
+                f"<p style='color:#ffd700; font-size:13px;'>▶️ {selected_track}</p>",
+                unsafe_allow_html=True,
+            )
+            st.audio(audio_bytes, format="audio/mp3", loop=True)
+            st.caption("🔉 Use the slider to adjust volume")
+        else:
+            st.warning("⚠️ Could not load audio. Check your internet connection.")
     else:
-        st.markdown("<p style='color:#888; font-size:13px;'>🔇 Music is off.</p>",
-                    unsafe_allow_html=True)
+        st.markdown(
+            "<p style='color:#888; font-size:13px;'>🔇 Music is off.</p>",
+            unsafe_allow_html=True,
+        )
 
     st.markdown("---")
     st.markdown("## 🔐 Gemini API Key")
@@ -93,7 +104,7 @@ with st.sidebar:
         "Jump to chapter:",
         options=[""] + list(CHAPTER_NAMES.keys()),
         format_func=lambda x: "Select a chapter..." if x == "" else f"Ch {x}: {CHAPTER_NAMES[x].split(' — ')[0]}",
-        key="chapter_select"
+        key="chapter_select",
     )
     if selected_chapter:
         chapter_shlokas = [s for s in SHLOKAS if s["chapter"] == selected_chapter]
@@ -107,6 +118,7 @@ with st.sidebar:
 
     st.markdown("---")
     st.markdown(f"**Total Shlokas:** {len(SHLOKAS)} across 18 chapters  \n**Themes:** 100+")
+
 
 # ── Header ─────────────────────────────────────────────────────────────────────
 st.markdown(
@@ -129,7 +141,7 @@ c3.metric("🎭 Themes", "100+")
 c4.metric("🌐 Live", "Yes")
 st.markdown("---")
 
-# ── Emotion Quick-Select ───────────────────────────────────────────────────────
+# ── Emotion Buttons ──────────────────────────────────────────────────────────────
 st.markdown("### 💛 How are you feeling right now?")
 st.caption("Tap a feeling or type your own below ⬇️")
 

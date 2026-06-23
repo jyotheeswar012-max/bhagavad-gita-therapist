@@ -1,6 +1,10 @@
-# Local audio files in the repo — works 100% on Streamlit Cloud
+# All music tracks stored locally in assets/ folder
 
 MUSIC_TRACKS = {
     "🔇 No Music": None,
-    "🕉️ Om Chanting": "12452-d225652ba14adc76ed2f1c023889a246.mp3",
+    "🕉️ Om Chanting": "assets/assets:om.mp3",
+    "🎵 Flute": "assets/assets:flute.mp3",
+    "🔔 Bells": "assets/assets:bells.mp3",
+    "🌧️ Rain": "assets/assets:rain.mp3",
+    "🌿 Ambient": "assets/assets:ambient.mp3",
 }

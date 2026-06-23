@@ -5,22 +5,22 @@ from gita_data import SHLOKAS
 
 
 def configure_gemini():
-    # 1. Try Streamlit secrets (Streamlit Cloud deployment)
+    # 1. Try Streamlit secrets
     try:
         api_key = st.secrets["GEMINI_API_KEY"]
         if api_key:
             genai.configure(api_key=api_key)
             return True, None
-    except Exception as e:
+    except Exception:
         pass
 
-    # 2. Try environment variable (local dev)
+    # 2. Try environment variable
     api_key = os.getenv("GEMINI_API_KEY", "")
     if api_key and api_key != "your_gemini_api_key_here":
         genai.configure(api_key=api_key)
         return True, None
 
-    return False, "GEMINI_API_KEY not found in Streamlit Secrets or environment."
+    return False, "GEMINI_API_KEY not found in Streamlit Secrets."
 
 
 def find_relevant_shlokas(user_input: str, top_n: int = 2) -> list:
@@ -66,15 +66,36 @@ Language: Simple English. No jargon. Max 300 words."""
 
     gemini_available, config_error = configure_gemini()
 
-    if gemini_available:
-        try:
-            model = genai.GenerativeModel("gemini-2.0-flash")
-            response = model.generate_content(prompt)
-            ai_response = response.text
-        except Exception as e:
-            # Show the REAL error so we can debug
-            ai_response = f"❌ Gemini API Error: {str(e)}"
-    else:
-        ai_response = f"❌ API Key Error: {config_error}\n\nPlease check Streamlit Secrets."
+    if not gemini_available:
+        return {"shlokas": shlokas, "guidance": f"❌ API Key Error: {config_error}"}
 
-    return {"shlokas": shlokas, "guidance": ai_response}
+    # Try models in order from most to least quota-friendly
+    models_to_try = [
+        "gemini-1.5-flash",
+        "gemini-1.5-flash-8b",
+        "gemini-1.0-pro",
+    ]
+
+    last_error = ""
+    for model_name in models_to_try:
+        try:
+            model = genai.GenerativeModel(model_name)
+            response = model.generate_content(prompt)
+            return {"shlokas": shlokas, "guidance": response.text}
+        except Exception as e:
+            last_error = str(e)
+            if "429" in str(e):
+                continue  # Try next model
+            else:
+                break  # Non-quota error, stop trying
+
+    return {
+        "shlokas": shlokas,
+        "guidance": (
+            "⚠️ Daily AI quota reached for today.\n\n"
+            "The shlokas above still carry deep wisdom for you. "
+            "Please come back tomorrow for a fresh AI response, "
+            "or the app owner can upgrade to a paid Gemini plan for unlimited access.\n\n"
+            "🕉️ Reflect on the shlokas shown above — they are chosen specifically for your situation."
+        )
+    }

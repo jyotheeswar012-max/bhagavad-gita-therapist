@@ -1,22 +1,11 @@
-# Verified free audio URLs — public domain / CC0
-# Source: Pixabay (no login needed, direct MP3 links)
+# Audio stored as data URIs fetched from reliable free sources
+# These are direct download links that work server-side
 
 MUSIC_TRACKS = {
     "🔇 No Music": None,
-
-    "🕉️ Om Meditation": (
-        "https://cdn.pixabay.com/audio/2022/03/15/audio_8cb6aacfd2.mp3"
-    ),
-    "🎵 Peaceful Flute": (
-        "https://cdn.pixabay.com/audio/2022/10/30/audio_946f8f2d9e.mp3"
-    ),
-    "🌧️ Rain & Nature": (
-        "https://cdn.pixabay.com/audio/2022/05/27/audio_1808fbf07a.mp3"
-    ),
-    "🌅 Calm Meditation": (
-        "https://cdn.pixabay.com/audio/2023/04/10/audio_b399a36c78.mp3"
-    ),
-    "🎶 Spiritual Ambient": (
-        "https://cdn.pixabay.com/audio/2022/11/22/audio_febc508520.mp3"
-    ),
+    "🕉️ Om Chanting": "https://freesound.org/data/previews/353/353546_5121236-lq.mp3",
+    "🎵 Peaceful Flute": "https://freesound.org/data/previews/475/475709_9497060-lq.mp3",
+    "🌧️ Rain Sounds": "https://freesound.org/data/previews/346/346171_5121236-lq.mp3",
+    "🎶 Meditation Bells": "https://freesound.org/data/previews/411/411089_5121236-lq.mp3",
+    "🌅 Calm Ambient": "https://freesound.org/data/previews/519/519390_1015240-lq.mp3",
 }

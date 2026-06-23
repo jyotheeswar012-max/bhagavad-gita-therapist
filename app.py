@@ -3,7 +3,7 @@ from therapist import get_gita_guidance
 from gita_data import SHLOKAS, CHAPTER_NAMES
 from music import MUSIC_TRACKS
 import os
-import requests
+import urllib.request
 
 st.set_page_config(
     page_title="Bhagavad Gita AI Therapist",
@@ -51,15 +51,13 @@ st.markdown("""
 
 
 @st.cache_data(show_spinner=False)
-def load_audio_bytes(url: str) -> bytes | None:
-    """Fetch audio bytes and cache so re-runs don’t re-download."""
+def fetch_audio(url: str) -> bytes | None:
     try:
-        r = requests.get(url, timeout=10)
-        if r.status_code == 200:
-            return r.content
-    except Exception:
-        pass
-    return None
+        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+        with urllib.request.urlopen(req, timeout=15) as r:
+            return r.read()
+    except Exception as e:
+        return None
 
 
 # ── Sidebar ────────────────────────────────────────────────────────────────────
@@ -73,20 +71,20 @@ with st.sidebar:
     track_url = MUSIC_TRACKS[selected_track]
 
     if track_url:
-        with st.spinner("Loading audio..."):
-            audio_bytes = load_audio_bytes(track_url)
+        with st.spinner("🎵 Loading audio..."):
+            audio_bytes = fetch_audio(track_url)
         if audio_bytes:
             st.markdown(
-                f"<p style='color:#ffd700; font-size:13px;'>▶️ {selected_track}</p>",
+                f"<p style='color:#ffd700; font-size:13px;'>▶️ Now playing: {selected_track}</p>",
                 unsafe_allow_html=True,
             )
             st.audio(audio_bytes, format="audio/mp3", loop=True)
-            st.caption("🔉 Use the slider to adjust volume")
+            st.caption("🔉 Adjust volume using the player")
         else:
-            st.warning("⚠️ Could not load audio. Check your internet connection.")
+            st.error("❌ Audio failed to load. Try another track.")
     else:
         st.markdown(
-            "<p style='color:#888; font-size:13px;'>🔇 Music is off.</p>",
+            "<p style='color:#aaa; font-size:13px;'>🔇 Music is off.</p>",
             unsafe_allow_html=True,
         )
 

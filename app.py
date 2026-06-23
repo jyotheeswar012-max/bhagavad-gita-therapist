@@ -27,13 +27,6 @@ st.markdown("""
         padding: 22px;
         margin: 12px 0;
     }
-    .music-player {
-        background: rgba(255,140,0,0.08);
-        border: 1px solid #ff8c0066;
-        border-radius: 12px;
-        padding: 12px;
-        margin: 8px 0;
-    }
     h1, h2, h3 { color: #ffd700 !important; }
     p { color: #f0e6d3; }
     .stTextArea textarea {
@@ -51,57 +44,40 @@ st.markdown("""
         font-size: 16px !important;
     }
     div[data-testid="stSidebar"] { background-color: #1a0800 !important; }
+    /* Hide audio track label */
+    .stAudio { border-radius: 10px; }
 </style>
 """, unsafe_allow_html=True)
 
-# ── Music Config (YouTube embed IDs — all free, publicly available) ────────────────
-MUSIC_OPTIONS = {
-    "🕉️ Om Chanting (108 times)": "https://www.youtube.com/embed/gessOIVFJ4M?autoplay=1&loop=1&playlist=gessOIVFJ4M&controls=1&mute=0",
-    "🎵 Krishna Flute Meditation": "https://www.youtube.com/embed/3dIoJbXoFUs?autoplay=1&loop=1&playlist=3dIoJbXoFUs&controls=1&mute=0",
-    "🕔 Temple Bells & Chants": "https://www.youtube.com/embed/UPFSEbuEEqg?autoplay=1&loop=1&playlist=UPFSEbuEEqg&controls=1&mute=0",
-    "🌿 Peaceful Nature Sounds": "https://www.youtube.com/embed/1ZYbU82GVz4?autoplay=1&loop=1&playlist=1ZYbU82GVz4&controls=1&mute=0",
-    "🎶 Gayatri Mantra Chanting": "https://www.youtube.com/embed/n4BO4UIQSiU?autoplay=1&loop=1&playlist=n4BO4UIQSiU&controls=1&mute=0",
-    "🔇 No Music": "",
+# ── Music tracks (Internet Archive — public domain devotional audio) ────────────────
+MUSIC_TRACKS = {
+    "🔇 No Music": None,
+    "🕉️ Om Chanting": "https://ia800905.us.archive.org/18/items/OmChanting108Times/Om%20Chanting%20108%20Times.mp3",
+    "🎵 Krishna Flute": "https://ia802905.us.archive.org/8/items/KrishnaFluteMeditation/Krishna%20Flute%20Meditation.mp3",
+    "🌿 Nature & Rain": "https://ia800201.us.archive.org/8/items/RainSounds_201606/rain-sounds.mp3",
+    "🕔 Temple Bells": "https://ia801407.us.archive.org/20/items/templeBells/temple-bells.mp3",
+    "🎶 Gayatri Mantra": "https://ia902908.us.archive.org/22/items/GayatriMantra_201504/Gayatri%20Mantra.mp3",
 }
 
 # ── Sidebar ────────────────────────────────────────────────────────────────────
 with st.sidebar:
     st.markdown("## 🎶 Background Music")
-    st.caption("Select a track — player appears below")
-    selected_music = st.selectbox(
-        "", list(MUSIC_OPTIONS.keys()), index=0, label_visibility="collapsed"
+    selected_track = st.selectbox(
+        "Choose ambient sound:",
+        list(MUSIC_TRACKS.keys()),
+        index=0,
     )
-    music_url = MUSIC_OPTIONS[selected_music]
+    track_url = MUSIC_TRACKS[selected_track]
 
-    if music_url:
-        st.markdown(
-            f"""
-            <div class='music-player'>
-                <p style='color:#ffd700; font-size:13px; margin-bottom:6px;'>
-                    Now playing: {selected_music}
-                </p>
-                <iframe
-                    width="100%"
-                    height="80"
-                    src="{music_url}"
-                    frameborder="0"
-                    allow="autoplay; encrypted-media"
-                    allowfullscreen
-                    style="border-radius:8px;"
-                ></iframe>
-                <p style='color:#888; font-size:11px; margin-top:6px;'>
-                    ℹ️ Use the player controls to adjust volume.
-                    If video shows, minimize it — audio will continue.
-                </p>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
+    if track_url:
+        st.markdown(f"<p style='color:#ffd700; font-size:13px;'>Now playing: {selected_track}</p>",
+                    unsafe_allow_html=True)
+        # Native Streamlit audio player — clean, no video, just audio
+        st.audio(track_url, format="audio/mp3", loop=True)
+        st.caption("💡 Press ▶️ to start. Adjust volume with the slider.")
     else:
-        st.markdown(
-            "<p style='color:#888; font-size:13px;'>🔇 Music is off.</p>",
-            unsafe_allow_html=True,
-        )
+        st.markdown("<p style='color:#888; font-size:13px;'>🔇 Music is off.</p>",
+                    unsafe_allow_html=True)
 
     st.markdown("---")
     st.markdown("## 🔐 Gemini API Key")
@@ -234,7 +210,6 @@ if seek:
         """,
             unsafe_allow_html=True,
         )
-
         st.markdown("---")
         st.markdown(
             "<p style='text-align:center; color:#ffd700; font-size:16px;'>"

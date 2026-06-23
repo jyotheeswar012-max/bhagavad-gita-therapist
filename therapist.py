@@ -1,16 +1,25 @@
 import os
+import streamlit as st
 import google.generativeai as genai
 from gita_data import SHLOKAS
-from dotenv import load_dotenv
-
-load_dotenv()
 
 
 def configure_gemini():
+    # 1. Try Streamlit secrets (Streamlit Cloud deployment)
+    try:
+        api_key = st.secrets["GEMINI_API_KEY"]
+        if api_key:
+            genai.configure(api_key=api_key)
+            return True
+    except Exception:
+        pass
+
+    # 2. Try environment variable (local dev)
     api_key = os.getenv("GEMINI_API_KEY", "")
     if api_key and api_key != "your_gemini_api_key_here":
         genai.configure(api_key=api_key)
         return True
+
     return False
 
 
@@ -25,7 +34,7 @@ def find_relevant_shlokas(user_input: str, top_n: int = 2) -> list:
     sorted_ids = sorted(scores, key=scores.get, reverse=True)[:top_n]
     matched = [s for s in SHLOKAS if s["id"] in sorted_ids]
     if not matched:
-        matched = [SHLOKAS[0], SHLOKAS[2]]  # Default: karma + self-elevation
+        matched = [SHLOKAS[0], SHLOKAS[2]]
     return matched
 
 
@@ -82,5 +91,5 @@ def _fallback_response() -> str:
         "1. ✅ Focusing on your actions, not the outcomes\n"
         "2. ✅ Accepting impermanence with grace\n"
         "3. ✅ Trusting the process of life\n\n"
-        "To unlock AI-powered guidance, add your free Gemini API key in the sidebar. 🕉️"
+        "🕉️ Wisdom from the eternal Bhagavad Gita."
     )

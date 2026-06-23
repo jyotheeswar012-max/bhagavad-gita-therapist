@@ -70,20 +70,12 @@ with st.sidebar:
             st.audio(audio_bytes, format="audio/mp3", loop=True)
             st.caption("🔉 Adjust volume using the player")
         except FileNotFoundError:
-            st.error("❌ Audio file not found in repo.")
+            st.error("❌ Audio file not found.")
     else:
         st.markdown(
             "<p style='color:#aaa; font-size:13px;'>🔇 Music is off.</p>",
             unsafe_allow_html=True,
         )
-
-    st.markdown("---")
-    st.markdown("## 🔐 Gemini API Key")
-    api_key_input = st.text_input("Enter your key", type="password", placeholder="AIza...")
-    if api_key_input:
-        os.environ["GEMINI_API_KEY"] = api_key_input
-        st.success("✅ API Key saved!")
-    st.markdown("[Get free key →](https://aistudio.google.com/)")
 
     st.markdown("---")
     st.markdown("## 📚 Browse All 18 Chapters")

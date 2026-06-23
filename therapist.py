@@ -1,26 +1,24 @@
 import os
 import streamlit as st
-import google.generativeai as genai
+from groq import Groq
 from gita_data import SHLOKAS
 
 
-def configure_gemini():
+def get_groq_client():
     # 1. Try Streamlit secrets
     try:
-        api_key = st.secrets["GEMINI_API_KEY"]
+        api_key = st.secrets["GROQ_API_KEY"]
         if api_key:
-            genai.configure(api_key=api_key)
-            return True, None
+            return Groq(api_key=api_key), None
     except Exception:
         pass
 
     # 2. Try environment variable
-    api_key = os.getenv("GEMINI_API_KEY", "")
-    if api_key and api_key != "your_gemini_api_key_here":
-        genai.configure(api_key=api_key)
-        return True, None
+    api_key = os.getenv("GROQ_API_KEY", "")
+    if api_key:
+        return Groq(api_key=api_key), None
 
-    return False, "GEMINI_API_KEY not found in Streamlit Secrets."
+    return None, "GROQ_API_KEY not found in Streamlit Secrets."
 
 
 def find_relevant_shlokas(user_input: str, top_n: int = 2) -> list:
@@ -64,38 +62,23 @@ Provide a warm, empathetic response that:
 Tone: Warm, wise, non-preachy. Like a wise friend, not a lecture.
 Language: Simple English. No jargon. Max 300 words."""
 
-    gemini_available, config_error = configure_gemini()
+    client, error = get_groq_client()
 
-    if not gemini_available:
-        return {"shlokas": shlokas, "guidance": f"❌ API Key Error: {config_error}"}
+    if not client:
+        return {"shlokas": shlokas, "guidance": f"❌ {error}"}
 
-    # Try models in order from most to least quota-friendly
-    models_to_try = [
-        "gemini-1.5-flash",
-        "gemini-1.5-flash-8b",
-        "gemini-1.0-pro",
-    ]
-
-    last_error = ""
-    for model_name in models_to_try:
-        try:
-            model = genai.GenerativeModel(model_name)
-            response = model.generate_content(prompt)
-            return {"shlokas": shlokas, "guidance": response.text}
-        except Exception as e:
-            last_error = str(e)
-            if "429" in str(e):
-                continue  # Try next model
-            else:
-                break  # Non-quota error, stop trying
-
-    return {
-        "shlokas": shlokas,
-        "guidance": (
-            "⚠️ Daily AI quota reached for today.\n\n"
-            "The shlokas above still carry deep wisdom for you. "
-            "Please come back tomorrow for a fresh AI response, "
-            "or the app owner can upgrade to a paid Gemini plan for unlimited access.\n\n"
-            "🕉️ Reflect on the shlokas shown above — they are chosen specifically for your situation."
+    try:
+        chat_completion = client.chat.completions.create(
+            messages=[
+                {"role": "system", "content": "You are a compassionate Bhagavad Gita AI therapist."},
+                {"role": "user", "content": prompt}
+            ],
+            model="llama3-8b-8192",
+            max_tokens=400,
+            temperature=0.7,
         )
-    }
+        ai_response = chat_completion.choices[0].message.content
+    except Exception as e:
+        ai_response = f"❌ Groq API Error: {str(e)}"
+
+    return {"shlokas": shlokas, "guidance": ai_response}

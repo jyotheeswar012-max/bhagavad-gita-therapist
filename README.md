@@ -4,7 +4,9 @@
 
 An AI-powered Streamlit app that listens to your emotional struggles and responds with relevant Bhagavad Gita shlokas + warm, practical guidance powered by **Google Gemini AI**.
 
-[![Streamlit App](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://share.streamlit.io)
+[![Streamlit App](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://bhagavad-gita-therapist.streamlit.app/)
+
+🌐 **Live Demo:** [bhagavad-gita-therapist.streamlit.app](https://bhagavad-gita-therapist.streamlit.app/)
 
 ---
 

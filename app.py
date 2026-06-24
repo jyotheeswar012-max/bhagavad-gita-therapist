@@ -7,6 +7,7 @@ import edge_tts
 import os
 import re
 import tempfile
+import requests
 
 st.set_page_config(
     page_title="Bhagavad Gita AI Therapist",
@@ -52,51 +53,43 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 
-def build_krishna_script(shloka: dict) -> str:
+# ── Real Sanskrit Audio from HuggingFace ────────────────────────────────────
+def get_real_shloka_audio(chapter: int, verse: int):
     """
-    Build a flowing, melodic recitation script.
-    Split transliteration only at natural phrase boundaries (commas/semicolons)
-    so the voice flows naturally rather than stopping at every word.
+    Fetch real Sanskrit recitation audio from HuggingFace dataset:
+    JDhruv14/Bhagavad-Gita_Audio
+    File path pattern: Chapter_{chapter:02d}/verse_{chapter}_{verse}.wav
     """
-    raw = shloka['transliteration'].strip()
-    # Split only at commas or semicolons to keep natural phrase groups
-    phrases = re.split(r'[,;]+', raw)
-    phrases = [p.strip() for p in phrases if p.strip()]
-    # Join with a single pause between phrases
-    chanted = ', '.join(phrases)
-
-    return (
-        f"O Arjuna, {chanted}. "
-        f"O Arjuna, {shloka['meaning']} "
-        f"Reflect on these words, and act with devotion."
-    )
-
-
-async def _generate_audio(script: str, path: str):
-    """Use hi-IN-MadhurNeural for authentic flowing Sanskrit pronunciation."""
-    try:
-        communicate = edge_tts.Communicate(
-            script,
-            "hi-IN-MadhurNeural",
-            rate="-20%",
-            pitch="-5Hz"
-        )
-        await communicate.save(path)
-    except Exception:
-        communicate = edge_tts.Communicate(
-            script,
-            "en-IN-PrabhatNeural",
-            rate="-20%",
-            pitch="-8Hz"
-        )
-        await communicate.save(path)
+    base_url = "https://huggingface.co/datasets/JDhruv14/Bhagavad-Gita_Audio/resolve/main"
+    # Try common file naming patterns
+    patterns = [
+        f"Chapter_{chapter:02d}/verse_{chapter}_{verse}.wav",
+        f"Chapter_{chapter}/verse_{chapter}_{verse}.wav",
+        f"Chapter_{chapter:02d}/{chapter}_{verse}.wav",
+        f"chapter_{chapter}/verse_{chapter}_{verse}.wav",
+    ]
+    for pattern in patterns:
+        url = f"{base_url}/{pattern}"
+        try:
+            resp = requests.get(url, timeout=10)
+            if resp.status_code == 200 and len(resp.content) > 1000:
+                return resp.content, "audio/wav"
+        except Exception:
+            continue
+    return None, None
 
 
+# ── TTS Fallback (for guidance only) ──────────────────────────────────────────
 def make_krishna_voice(script: str):
     try:
         with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as tmp:
             tmp_path = tmp.name
-        asyncio.run(_generate_audio(script, tmp_path))
+        async def generate():
+            communicate = edge_tts.Communicate(
+                script, "hi-IN-MadhurNeural", rate="-20%", pitch="-5Hz"
+            )
+            await communicate.save(tmp_path)
+        asyncio.run(generate())
         with open(tmp_path, "rb") as f:
             audio_bytes = f.read()
         os.unlink(tmp_path)
@@ -232,16 +225,23 @@ if st.session_state.result:
         """, unsafe_allow_html=True)
 
         voice_key = f"shloka_{i}"
-        if st.button(f"🔊 Hear Shloka {i+1} in Krishna's Voice", key=f"btn_{voice_key}"):
-            with st.spinner("🕉️ Chanting the shloka..."):
-                audio = make_krishna_voice(build_krishna_script(s))
+        if st.button(f"🔊 Hear Shloka {i+1} — Real Sanskrit Recitation", key=f"btn_{voice_key}"):
+            with st.spinner("🕉️ Loading real Sanskrit audio..."):
+                audio, fmt = get_real_shloka_audio(s['chapter'], s['verse'])
             if audio:
-                st.session_state.voice_audio[voice_key] = audio
+                st.session_state.voice_audio[voice_key] = (audio, fmt)
+                st.success("✅ Real Sanskrit recitation loaded!")
             else:
-                st.error("❌ Voice generation failed. Check internet.")
+                st.warning("⚠️ Real audio not available for this verse — using voice narration instead.")
+                # Fallback: TTS with meaning narration
+                script = f"O Arjuna, {s['transliteration']}. O Arjuna, {s['meaning']}. Reflect on these words, and act with devotion."
+                audio = make_krishna_voice(script)
+                if audio:
+                    st.session_state.voice_audio[voice_key] = (audio, "audio/mp3")
 
         if voice_key in st.session_state.voice_audio:
-            st.audio(st.session_state.voice_audio[voice_key], format="audio/mp3")
+            audio_data, audio_fmt = st.session_state.voice_audio[voice_key]
+            st.audio(audio_data, format=audio_fmt)
 
     st.markdown("### 🧘 Krishna's Guidance for You")
     guidance_text = result['guidance']
@@ -255,19 +255,19 @@ if st.session_state.result:
 
     if st.button("🔊 Hear Krishna's Full Guidance", key="btn_guidance"):
         full_script = (
-            f"O Arjuna, "
-            f"{guidance_text}. "
+            f"O Arjuna, {guidance_text}. "
             f"O Arjuna, go forward with courage, and surrender to the divine."
         )
-        with st.spinner("🕉️ Generating Krishna's voice..."):
+        with st.spinner("🕉️ Generating guidance voice..."):
             audio = make_krishna_voice(full_script)
         if audio:
-            st.session_state.voice_audio["guidance"] = audio
+            st.session_state.voice_audio["guidance"] = (audio, "audio/mp3")
         else:
             st.error("❌ Voice generation failed.")
 
     if "guidance" in st.session_state.voice_audio:
-        st.audio(st.session_state.voice_audio["guidance"], format="audio/mp3")
+        audio_data, audio_fmt = st.session_state.voice_audio["guidance"]
+        st.audio(audio_data, format=audio_fmt)
 
     st.markdown("---")
     st.markdown("<p style='text-align:center; color:#ffd700; font-size:16px;'>✨ <i>Tat Tvam Asi — Thou Art That</i> ✨</p>", unsafe_allow_html=True)

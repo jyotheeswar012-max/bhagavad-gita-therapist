@@ -56,14 +56,16 @@ st.markdown("""
 
 def make_sanskrit_chant(sanskrit_text: str):
     """
-    Use gTTS with Sanskrit language code to pronounce actual Devanagari Sanskrit.
-    This is Google's own Sanskrit TTS - pronounces Sanskrit correctly.
+    Use gTTS with Hindi (lang='hi') to read actual Devanagari Sanskrit.
+    Hindi and Sanskrit share the same Devanagari script,
+    so Google Hindi TTS pronounces Sanskrit shlokas authentically.
+    slow=True gives a slower, meditative chanting pace.
     """
     try:
-        # Clean the Sanskrit text - remove verse numbers and pipes
-        clean = re.sub(r'[|\|\|\d]+', '', sanskrit_text).strip()
-        clean = re.sub(r'\s+', ' ', clean)
-        tts = gTTS(text=clean, lang='sa', slow=True)
+        # Remove verse number markers like ||47|| |1| etc, keep only Sanskrit text
+        clean = re.sub(r'\|+\d*\|*', ' ', sanskrit_text)
+        clean = re.sub(r'\s+', ' ', clean).strip()
+        tts = gTTS(text=clean, lang='hi', slow=True)
         buf = io.BytesIO()
         tts.write_to_fp(buf)
         buf.seek(0)
@@ -73,7 +75,7 @@ def make_sanskrit_chant(sanskrit_text: str):
 
 
 def make_krishna_guidance_voice(script: str):
-    """Use edge-tts Hindi neural voice for the English guidance narration."""
+    """edge-tts Hindi neural voice for English guidance narration."""
     try:
         with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as tmp:
             tmp_path = tmp.name
@@ -219,7 +221,7 @@ if st.session_state.result:
 
         voice_key = f"shloka_{i}"
         if st.button(f"🔊 Hear Shloka {i+1} — Sanskrit Chanting", key=f"btn_{voice_key}"):
-            with st.spinner("🕉️ Chanting the shloka in Sanskrit..."):
+            with st.spinner("🕉️ Chanting the shloka..."):
                 audio = make_sanskrit_chant(s['sanskrit'])
             if audio:
                 st.session_state.voice_audio[voice_key] = audio
@@ -229,7 +231,6 @@ if st.session_state.result:
         if voice_key in st.session_state.voice_audio:
             st.audio(st.session_state.voice_audio[voice_key], format="audio/mp3")
 
-    # Guidance
     st.markdown("### 🧘 Krishna's Guidance for You")
     guidance_text = result['guidance']
     st.markdown(f"""

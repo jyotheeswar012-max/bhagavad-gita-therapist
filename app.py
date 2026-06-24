@@ -51,12 +51,41 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 
+# Divine address lines Krishna uses — rotated per shloka
+KRISHNA_ADDRESS = [
+    "O Arjuna,",
+    "O son of Kunti,",
+    "O Bharata,",
+    "O mighty-armed one,",
+    "O Partha,",
+    "O winner of wealth,",
+    "O sinless one,",
+    "O descendant of Bharata,",
+]
+
+
+def build_krishna_script(shloka: dict, index: int) -> str:
+    address = KRISHNA_ADDRESS[index % len(KRISHNA_ADDRESS)]
+    chapter_name = CHAPTER_NAMES.get(shloka['chapter'], '').split(' — ')[0]
+    script = (
+        f"From the Bhagavad Gita... Chapter {shloka['chapter']}... {chapter_name}... "
+        f"Verse {shloka['verse']}... "
+        f"Shri Krishna speaks... "
+        f"{address}... "
+        f"{shloka['transliteration']}... "
+        f"...{address}... "
+        f"{shloka['meaning']}... "
+        f"Reflect on these words... and act with devotion."
+    )
+    return script
+
+
 def make_krishna_voice(script: str):
     try:
         with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as tmp:
             tmp_path = tmp.name
         async def generate():
-            communicate = edge_tts.Communicate(script, "en-IN-PrabhatNeural", rate="-20%", pitch="-10Hz")
+            communicate = edge_tts.Communicate(script, "en-IN-PrabhatNeural", rate="-25%", pitch="-8Hz")
             await communicate.save(tmp_path)
         asyncio.run(generate())
         with open(tmp_path, "rb") as f:
@@ -67,7 +96,7 @@ def make_krishna_voice(script: str):
         return None
 
 
-# ── Session state init ─────────────────────────────────────────────────────
+# ── Session state init ───────────────────────────────────────────────────
 if "preset" not in st.session_state:
     st.session_state.preset = ""
 if "result" not in st.session_state:
@@ -156,23 +185,22 @@ for i, (label, val) in enumerate(EMOTIONS.items()):
 st.markdown("### ✏️ Describe your situation")
 user_input = st.text_area(
     "", value=st.session_state.preset,
-    placeholder="E.g. I am stressed about my exams...",
+    placeholder="E.g. I am stressed about my exams and fear of failure is stopping me from studying...",
     height=130, label_visibility="collapsed",
 )
 col1, col2, col3 = st.columns([1, 2, 1])
 with col2:
     seek = st.button("🕉️ Seek Krishna's Guidance", use_container_width=True)
 
-# Get guidance and store in session_state
 if seek:
     if not user_input.strip():
         st.warning("⚠️ Please describe your situation or tap a feeling above.")
     else:
         with st.spinner("🕉️ Seeking wisdom from the Bhagavad Gita..."):
             st.session_state.result = get_gita_guidance(user_input)
-        st.session_state.voice_audio = {}  # clear old audio cache
+        st.session_state.voice_audio = {}
 
-# ── Show Results (persists across button clicks) ───────────────────────────
+# ── Results (persists across reruns) ───────────────────────────────────────────
 if st.session_state.result:
     result = st.session_state.result
 
@@ -196,23 +224,18 @@ if st.session_state.result:
 
         voice_key = f"shloka_{i}"
         if st.button(f"🔊 Hear Shloka {i+1} in Krishna's Voice", key=f"btn_{voice_key}"):
-            voice_script = (
-                f"Shri Krishna speaks from the Bhagavad Gita. "
-                f"Chapter {s['chapter']}, Verse {s['verse']}. "
-                f"{s['transliteration']}. "
-                f"The meaning of this shloka is... {s['meaning']}"
-            )
             with st.spinner("🕉️ Generating Krishna's voice..."):
-                audio = make_krishna_voice(voice_script)
+                script = build_krishna_script(s, i)
+                audio = make_krishna_voice(script)
             if audio:
                 st.session_state.voice_audio[voice_key] = audio
             else:
-                st.error("❌ Voice generation failed.")
+                st.error("❌ Voice generation failed. Check internet.")
 
         if voice_key in st.session_state.voice_audio:
             st.audio(st.session_state.voice_audio[voice_key], format="audio/mp3")
 
-    # Guidance
+    # Guidance section
     st.markdown("### 🧘 Krishna's Guidance for You")
     guidance_text = result['guidance']
     st.markdown(f"""
@@ -224,8 +247,13 @@ if st.session_state.result:
     """, unsafe_allow_html=True)
 
     if st.button("🔊 Hear Krishna's Full Guidance", key="btn_guidance"):
+        full_script = (
+            f"O Arjuna... hear these words of Shri Krishna... "
+            f"{guidance_text}... "
+            f"Go forward with courage... and surrender to the divine."
+        )
         with st.spinner("🕉️ Generating Krishna's voice..."):
-            audio = make_krishna_voice(f"Shri Krishna speaks... {guidance_text}")
+            audio = make_krishna_voice(full_script)
         if audio:
             st.session_state.voice_audio["guidance"] = audio
         else:

@@ -28,6 +28,18 @@ st.markdown("""
         padding: 22px;
         margin: 12px 0;
     }
+    .speak-btn {
+        background: linear-gradient(135deg, #ff6b00, #ffd700);
+        color: #1a0800;
+        font-weight: bold;
+        border: none;
+        border-radius: 8px;
+        padding: 7px 18px;
+        font-size: 14px;
+        cursor: pointer;
+        margin-top: 10px;
+    }
+    .speak-btn:hover { opacity: 0.85; }
     h1, h2, h3 { color: #ffd700 !important; }
     p { color: #f0e6d3; }
     .stTextArea textarea {
@@ -47,6 +59,32 @@ st.markdown("""
     div[data-testid="stSidebar"] { background-color: #1a0800 !important; }
 </style>
 """, unsafe_allow_html=True)
+
+
+def speak_button(text, button_id, label="🔊 Hear Krishna Speak"):
+    """Render a speak button using browser Web Speech API."""
+    # Escape text for safe JS embedding
+    safe_text = text.replace("'", "\\'").replace('"', '\\"').replace("\n", " ")
+    st.markdown(f"""
+        <button class="speak-btn" onclick="
+            window.speechSynthesis.cancel();
+            var u = new SpeechSynthesisUtterance('{safe_text}');
+            u.rate = 0.78;
+            u.pitch = 0.6;
+            u.volume = 1.0;
+            var voices = window.speechSynthesis.getVoices();
+            var preferred = voices.find(v =>
+                v.name.includes('Google UK English Male') ||
+                v.name.includes('David') ||
+                v.name.includes('Daniel') ||
+                v.name.includes('Male')
+            );
+            if (preferred) u.voice = preferred;
+            window.speechSynthesis.speak(u);
+        ">{label}</button>
+        &nbsp;
+        <button class="speak-btn" style="background:linear-gradient(135deg,#555,#333);color:#fff;" onclick="window.speechSynthesis.cancel();">&#9646;&#9646; Stop</button>
+    """, unsafe_allow_html=True)
 
 
 # ── Sidebar ────────────────────────────────────────────────────────────────────
@@ -171,7 +209,9 @@ if seek:
 
         st.markdown("---")
         st.markdown("### 📜 Shlokas for Your Situation")
-        for s in result["shlokas"]:
+        for i, s in enumerate(result["shlokas"]):
+            # Combine transliteration + meaning for speaking
+            speak_text = f"Chapter {s['chapter']}, Verse {s['verse']}. {s['transliteration']}. Meaning: {s['meaning']}"
             st.markdown(
                 f"""
             <div class='shloka-box'>
@@ -189,18 +229,23 @@ if seek:
             """,
                 unsafe_allow_html=True,
             )
+            speak_button(speak_text, f"shloka_{i}")
 
         st.markdown("### 🧘 Krishna's Guidance for You")
+        guidance_text = result['guidance']
         st.markdown(
             f"""
         <div class='guidance-box'>
             <p style='color:#e0e0e0; line-height:1.9; font-size:15px;'>
-                {result['guidance'].replace(chr(10), '<br>')}
+                {guidance_text.replace(chr(10), '<br>')}
             </p>
         </div>
         """,
             unsafe_allow_html=True,
         )
+        # Speak full guidance
+        speak_button(guidance_text, "guidance", label="🔊 Hear Krishna's Full Guidance")
+
         st.markdown("---")
         st.markdown(
             "<p style='text-align:center; color:#ffd700; font-size:16px;'>"
@@ -213,7 +258,7 @@ if seek:
 st.markdown("---")
 st.markdown(
     "<p style='text-align:center; color:#555; font-size:12px;'>"
-    "Built with ❤️ using Streamlit & Gemini AI · "
+    "Built with ❤️ using Streamlit & Groq AI · "
     "Inspired by the eternal wisdom of the Bhagavad Gita"
     "</p>",
     unsafe_allow_html=True,

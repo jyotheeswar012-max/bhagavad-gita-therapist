@@ -1,4 +1,4 @@
 streamlit
 groq
-gTTS
+edge-tts
 python-dotenv

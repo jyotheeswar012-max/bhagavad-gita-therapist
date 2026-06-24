@@ -2,9 +2,11 @@ import streamlit as st
 from therapist import get_gita_guidance
 from gita_data import SHLOKAS, CHAPTER_NAMES
 from music import MUSIC_TRACKS
-from gtts import gTTS
+import asyncio
+import edge_tts
 import io
 import os
+import tempfile
 
 st.set_page_config(
     page_title="Bhagavad Gita AI Therapist",
@@ -51,14 +53,24 @@ st.markdown("""
 
 
 def make_krishna_voice(script: str):
-    """Generate slow, divine-style voice audio from text using gTTS."""
+    """Generate deep male Indian voice using edge-tts."""
     try:
-        tts = gTTS(text=script, lang='en', slow=True)
-        buf = io.BytesIO()
-        tts.write_to_fp(buf)
-        buf.seek(0)
-        return buf.read()
-    except Exception:
+        # en-IN-PrabhatNeural = deep Indian male voice, perfect for Krishna
+        voice = "en-IN-PrabhatNeural"
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as tmp:
+            tmp_path = tmp.name
+
+        async def generate():
+            communicate = edge_tts.Communicate(script, voice, rate="-20%", pitch="-10Hz")
+            await communicate.save(tmp_path)
+
+        asyncio.run(generate())
+
+        with open(tmp_path, "rb") as f:
+            audio_bytes = f.read()
+        os.unlink(tmp_path)
+        return audio_bytes
+    except Exception as e:
         return None
 
 
@@ -188,7 +200,7 @@ if seek:
                 if audio:
                     st.audio(audio, format="audio/mp3")
                 else:
-                    st.error("❌ Voice generation failed. Check internet connection.")
+                    st.error("❌ Voice generation failed. Please try again.")
 
         st.markdown("### 🧘 Krishna's Guidance for You")
         guidance_text = result['guidance']

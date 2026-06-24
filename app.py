@@ -12,7 +12,6 @@ st.set_page_config(
     layout="centered",
 )
 
-# ── CSS ────────────────────────────────────────────────────────────────────────
 st.markdown("""
 <style>
     .stApp { background: linear-gradient(135deg, #1a0800 0%, #2d1200 50%, #1a0800 100%); }
@@ -51,45 +50,34 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 
-def text_to_audio(text):
-    """Convert text to audio bytes using gTTS."""
+def make_krishna_voice(script: str):
+    """Generate slow, divine-style voice audio from text using gTTS."""
     try:
-        tts = gTTS(text=text, lang='en', slow=True)
-        audio_buffer = io.BytesIO()
-        tts.write_to_fp(audio_buffer)
-        audio_buffer.seek(0)
-        return audio_buffer.read()
-    except Exception as e:
+        tts = gTTS(text=script, lang='en', slow=True)
+        buf = io.BytesIO()
+        tts.write_to_fp(buf)
+        buf.seek(0)
+        return buf.read()
+    except Exception:
         return None
 
 
 # ── Sidebar ────────────────────────────────────────────────────────────────────
 with st.sidebar:
     st.markdown("## 🎶 Background Music")
-    selected_track = st.selectbox(
-        "Choose ambient sound:",
-        list(MUSIC_TRACKS.keys()),
-        index=0,
-    )
+    selected_track = st.selectbox("Choose ambient sound:", list(MUSIC_TRACKS.keys()), index=0)
     track_path = MUSIC_TRACKS[selected_track]
-
     if track_path:
         try:
             with open(track_path, "rb") as f:
                 audio_bytes = f.read()
-            st.markdown(
-                f"<p style='color:#ffd700; font-size:13px;'>▶️ Now playing: {selected_track}</p>",
-                unsafe_allow_html=True,
-            )
+            st.markdown(f"<p style='color:#ffd700; font-size:13px;'>▶️ Now playing: {selected_track}</p>", unsafe_allow_html=True)
             st.audio(audio_bytes, format="audio/mp3", loop=True)
             st.caption("🔉 Adjust volume using the player")
         except FileNotFoundError:
             st.error("❌ Audio file not found.")
     else:
-        st.markdown(
-            "<p style='color:#aaa; font-size:13px;'>🔇 Music is off.</p>",
-            unsafe_allow_html=True,
-        )
+        st.markdown("<p style='color:#aaa; font-size:13px;'>🔇 Music is off.</p>", unsafe_allow_html=True)
 
     st.markdown("---")
     st.markdown("## 📚 Browse All 18 Chapters")
@@ -108,25 +96,15 @@ with st.sidebar:
                 st.markdown(f"**Sanskrit:** {s['sanskrit']}")
                 st.markdown(f"*{s['transliteration']}*")
                 st.markdown(f"**Meaning:** {s['meaning']}")
-
     st.markdown("---")
     st.markdown(f"**Total Shlokas:** {len(SHLOKAS)} across 18 chapters  \n**Themes:** 100+")
 
 
 # ── Header ─────────────────────────────────────────────────────────────────────
-st.markdown(
-    "<h1 style='text-align:center; font-size:2.5rem;'>🕉️ Bhagavad Gita AI Therapist</h1>",
-    unsafe_allow_html=True,
-)
-st.markdown(
-    "<p style='text-align:center; color:#ffd700; font-size:17px;'>"
-    "Share your struggles. Receive ancient wisdom. Find modern clarity."
-    "</p>",
-    unsafe_allow_html=True,
-)
+st.markdown("<h1 style='text-align:center; font-size:2.5rem;'>🕉️ Bhagavad Gita AI Therapist</h1>", unsafe_allow_html=True)
+st.markdown("<p style='text-align:center; color:#ffd700; font-size:17px;'>Share your struggles. Receive ancient wisdom. Find modern clarity.</p>", unsafe_allow_html=True)
 st.markdown("---")
 
-# ── Stats Bar ──────────────────────────────────────────────────────────────────
 c1, c2, c3, c4 = st.columns(4)
 c1.metric("📜 Shlokas", len(SHLOKAS))
 c2.metric("📖 Chapters", 18)
@@ -161,16 +139,13 @@ for i, (label, val) in enumerate(EMOTIONS.items()):
     if cols[i % 4].button(label, use_container_width=True):
         st.session_state.preset = val
 
-# ── Text Input ─────────────────────────────────────────────────────────────────
+# ── Input ──────────────────────────────────────────────────────────────────────
 st.markdown("### ✏️ Describe your situation")
 user_input = st.text_area(
-    "",
-    value=st.session_state.preset,
+    "", value=st.session_state.preset,
     placeholder="E.g. I am stressed about my exams and fear of failure is stopping me from studying...",
-    height=130,
-    label_visibility="collapsed",
+    height=130, label_visibility="collapsed",
 )
-
 col1, col2, col3 = st.columns([1, 2, 1])
 with col2:
     seek = st.button("🕉️ Seek Krishna's Guidance", use_container_width=True)
@@ -185,68 +160,57 @@ if seek:
 
         st.markdown("---")
         st.markdown("### 📜 Shlokas for Your Situation")
+
         for i, s in enumerate(result["shlokas"]):
-            speak_text = f"Chapter {s['chapter']}, Verse {s['verse']}. {s['transliteration']}. Meaning: {s['meaning']}"
-            st.markdown(
-                f"""
+            chapter_name = CHAPTER_NAMES.get(s['chapter'], '')
+            st.markdown(f"""
             <div class='shloka-box'>
                 <h4 style='color:#ffd700; margin-top:0;'>
                     🕉️ Chapter {s['chapter']}, Verse {s['verse']}
-                    <span style='color:#888; font-size:13px; font-weight:normal;'>
-                        &nbsp;— {CHAPTER_NAMES.get(s['chapter'], '')}
-                    </span>
+                    <span style='color:#888; font-size:13px; font-weight:normal;'>&nbsp;— {chapter_name}</span>
                 </h4>
                 <p style='color:#ff8c00; font-size:18px; font-family:serif; line-height:1.9;'>{s['sanskrit']}</p>
                 <p style='color:#aaa; font-style:italic; font-size:13px;'>{s['transliteration']}</p>
                 <hr style='border-color:#4a1e00;'/>
                 <p style='color:#f0e6d3;'><b>Meaning:</b> {s['meaning']}</p>
             </div>
-            """,
-                unsafe_allow_html=True,
-            )
-            # gTTS voice button
-            with st.expander(f"🔊 Hear Shloka {i+1} in Krishna's Voice"):
-                with st.spinner("Generating voice..."):
-                    audio_bytes = text_to_audio(speak_text)
-                if audio_bytes:
-                    st.audio(audio_bytes, format="audio/mp3")
+            """, unsafe_allow_html=True)
+
+            if st.button(f"🔊 Hear Shloka {i+1} in Krishna's Voice", key=f"voice_shloka_{i}"):
+                voice_script = (
+                    f"Shri Krishna speaks from the Bhagavad Gita. "
+                    f"Chapter {s['chapter']}, Verse {s['verse']}. "
+                    f"{s['transliteration']}. "
+                    f"The meaning of this shloka is... {s['meaning']}"
+                )
+                with st.spinner("🕉️ Generating Krishna's voice..."):
+                    audio = make_krishna_voice(voice_script)
+                if audio:
+                    st.audio(audio, format="audio/mp3")
                 else:
                     st.error("❌ Voice generation failed. Check internet connection.")
 
         st.markdown("### 🧘 Krishna's Guidance for You")
         guidance_text = result['guidance']
-        st.markdown(
-            f"""
+        st.markdown(f"""
         <div class='guidance-box'>
             <p style='color:#e0e0e0; line-height:1.9; font-size:15px;'>
                 {guidance_text.replace(chr(10), '<br>')}
             </p>
         </div>
-        """,
-            unsafe_allow_html=True,
-        )
-        with st.expander("🔊 Hear Krishna's Full Guidance"):
-            with st.spinner("Generating voice..."):
-                audio_bytes = text_to_audio(guidance_text)
-            if audio_bytes:
-                st.audio(audio_bytes, format="audio/mp3")
+        """, unsafe_allow_html=True)
+
+        if st.button("🔊 Hear Krishna's Full Guidance", key="voice_guidance"):
+            voice_script = f"Shri Krishna speaks... {guidance_text}"
+            with st.spinner("🕉️ Generating Krishna's voice..."):
+                audio = make_krishna_voice(voice_script)
+            if audio:
+                st.audio(audio, format="audio/mp3")
             else:
                 st.error("❌ Voice generation failed.")
 
         st.markdown("---")
-        st.markdown(
-            "<p style='text-align:center; color:#ffd700; font-size:16px;'>"
-            "✨ <i>Tat Tvam Asi — Thou Art That</i> ✨"
-            "</p>",
-            unsafe_allow_html=True,
-        )
+        st.markdown("<p style='text-align:center; color:#ffd700; font-size:16px;'>✨ <i>Tat Tvam Asi — Thou Art That</i> ✨</p>", unsafe_allow_html=True)
 
-# ── Footer ─────────────────────────────────────────────────────────────────────
 st.markdown("---")
-st.markdown(
-    "<p style='text-align:center; color:#555; font-size:12px;'>"
-    "Built with ❤️ using Streamlit & Groq AI · "
-    "Inspired by the eternal wisdom of the Bhagavad Gita"
-    "</p>",
-    unsafe_allow_html=True,
-)
+st.markdown("<p style='text-align:center; color:#555; font-size:12px;'>Built with ❤️ using Streamlit & Groq AI · Inspired by the eternal wisdom of the Bhagavad Gita</p>", unsafe_allow_html=True)

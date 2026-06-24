@@ -52,31 +52,43 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 
-def chant_rhythm(transliteration: str) -> str:
-    """Split transliteration word-by-word with pauses for chanting rhythm."""
-    words = re.split(r'[,\s\-]+', transliteration.strip())
-    words = [w.strip() for w in words if w.strip()]
-    return '... '.join(words) + '...'
-
-
 def build_krishna_script(shloka: dict) -> str:
-    chanted = chant_rhythm(shloka['transliteration'])
+    """
+    Build a flowing, melodic recitation script.
+    Split transliteration only at natural phrase boundaries (commas/semicolons)
+    so the voice flows naturally rather than stopping at every word.
+    """
+    raw = shloka['transliteration'].strip()
+    # Split only at commas or semicolons to keep natural phrase groups
+    phrases = re.split(r'[,;]+', raw)
+    phrases = [p.strip() for p in phrases if p.strip()]
+    # Join with a single pause between phrases
+    chanted = ', '.join(phrases)
+
     return (
-        f"O Arjuna... "
-        f"{chanted} "
-        f"O Arjuna... "
-        f"{shloka['meaning']}... "
-        f"Reflect on these words... and act with devotion."
+        f"O Arjuna, {chanted}. "
+        f"O Arjuna, {shloka['meaning']} "
+        f"Reflect on these words, and act with devotion."
     )
 
 
 async def _generate_audio(script: str, path: str):
-    """Try hi-IN-MadhurNeural first (authentic Sanskrit), fallback to en-IN-PrabhatNeural."""
+    """Use hi-IN-MadhurNeural for authentic flowing Sanskrit pronunciation."""
     try:
-        communicate = edge_tts.Communicate(script, "hi-IN-MadhurNeural", rate="-30%", pitch="-5Hz")
+        communicate = edge_tts.Communicate(
+            script,
+            "hi-IN-MadhurNeural",
+            rate="-20%",
+            pitch="-5Hz"
+        )
         await communicate.save(path)
     except Exception:
-        communicate = edge_tts.Communicate(script, "en-IN-PrabhatNeural", rate="-30%", pitch="-8Hz")
+        communicate = edge_tts.Communicate(
+            script,
+            "en-IN-PrabhatNeural",
+            rate="-20%",
+            pitch="-8Hz"
+        )
         await communicate.save(path)
 
 
@@ -243,9 +255,9 @@ if st.session_state.result:
 
     if st.button("🔊 Hear Krishna's Full Guidance", key="btn_guidance"):
         full_script = (
-            f"O Arjuna... "
-            f"{guidance_text}... "
-            f"O Arjuna... go forward with courage... and surrender to the divine."
+            f"O Arjuna, "
+            f"{guidance_text}. "
+            f"O Arjuna, go forward with courage, and surrender to the divine."
         )
         with st.spinner("🕉️ Generating Krishna's voice..."):
             audio = make_krishna_voice(full_script)

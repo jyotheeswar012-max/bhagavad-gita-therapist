@@ -1,5 +1,4 @@
 import streamlit as st
-import streamlit.components.v1 as components
 from therapist import get_gita_guidance
 from gita_data import SHLOKAS, CHAPTER_NAMES
 from music import MUSIC_TRACKS
@@ -8,6 +7,8 @@ import edge_tts
 import os
 import re
 import tempfile
+from gtts import gTTS
+import io
 
 st.set_page_config(
     page_title="Bhagavad Gita AI Therapist",
@@ -52,70 +53,60 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# Authentic YouTube chanting video IDs (Chinmaya Mission)
-CHANTING_VIDEOS = {
-    101: "VKz9H2IqJFM",
-    102: "HA39qcJiYaM",
-    201: "5Rl0aI65WZQ",
-    202: "5Rl0aI65WZQ",
-    203: "amq_uTN4PNY",
-    204: "amq_uTN4PNY",
-    205: "7OZc6Ii7Vrc",
-    206: "7OZc6Ii7Vrc",
-    207: "7OZc6Ii7Vrc",
-    401: "-FNW40otavg",
-    402: "Ejyn4yOs-8A",
-    1201: "Mk0JJj9cGhg",
-    1202: "Mk0JJj9cGhg",
-}
-
-CHAPTER_TIMESTAMPS = {
-    1: 0, 2: 874, 3: 2184, 4: 3004, 5: 3776,
-    6: 4320, 7: 5158, 8: 5701, 9: 6215, 10: 6838,
-    11: 7574, 12: 8613, 13: 8983, 14: 9562, 15: 10070,
-    16: 10495, 17: 10973, 18: 11516,
-}
-FULL_GITA_VIDEO = "RBqn1wFD_pg"
+# Cache dir inside /tmp — writable on Streamlit Cloud, persists per session
+CACHE_DIR = "/tmp/gita_audio_cache"
+os.makedirs(CACHE_DIR, exist_ok=True)
 
 
-def get_youtube_url(shloka: dict) -> str:
-    vid_id = CHANTING_VIDEOS.get(shloka["id"])
-    if vid_id:
-        return f"https://www.youtube.com/embed/{vid_id}?autoplay=0&rel=0"
-    t = CHAPTER_TIMESTAMPS.get(shloka["chapter"], 0)
-    return f"https://www.youtube.com/embed/{FULL_GITA_VIDEO}?start={t}&autoplay=0&rel=0"
+def clean_sanskrit(text: str) -> str:
+    """Strip verse numbers and pipe chars from Sanskrit text."""
+    text = re.sub(r'\|+\s*\d*\s*\|*', ' ', text)
+    text = re.sub(r'\|\|\d+\|\|', '', text)
+    text = re.sub(r'\s+', ' ', text)
+    return text.strip()
 
 
-def render_youtube_player(shloka: dict):
-    """Render YouTube iframe using st.components — bypasses Streamlit iframe stripping."""
-    url = get_youtube_url(shloka)
-    html = f"""
-    <div style="background:#1a0800; padding:8px 0;">
-        <p style="color:#ffd700; font-size:13px; margin:0 0 6px 0; font-family:sans-serif;">
-            🕉️ Authentic Sanskrit Chanting — Chinmaya Mission
-        </p>
-        <iframe
-            width="100%" height="160"
-            src="{url}"
-            frameborder="0"
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-            allowfullscreen
-            style="border-radius:10px; border:1px solid #ff8c00; display:block;">
-        </iframe>
-    </div>
+def get_shloka_audio(shloka: dict) -> bytes | None:
     """
-    components.html(html, height=185)
+    Generate Sanskrit chanting using gTTS lang='sa' (Sanskrit).
+    Caches to /tmp per session so it never regenerates twice.
+    Exact match to the shloka — no YouTube, works offline after first gen.
+    """
+    cache_path = os.path.join(CACHE_DIR, f"{shloka['id']}.mp3")
+
+    # Serve from cache if already generated this session
+    if os.path.exists(cache_path):
+        with open(cache_path, "rb") as f:
+            return f.read()
+
+    # Generate fresh Sanskrit TTS
+    try:
+        clean = clean_sanskrit(shloka["sanskrit"])
+        tts = gTTS(text=clean, lang='hi', slow=True)  # 'hi' gives best Devanagari reading
+        buf = io.BytesIO()
+        tts.write_to_fp(buf)
+        buf.seek(0)
+        audio = buf.read()
+        # Save to cache
+        with open(cache_path, "wb") as f:
+            f.write(audio)
+        return audio
+    except Exception:
+        return None
 
 
 def make_guidance_voice(script: str) -> bytes | None:
+    """edge-tts neural voice for English guidance."""
     try:
         with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as tmp:
             tmp_path = tmp.name
+
         async def _gen():
             communicate = edge_tts.Communicate(
-                script, "hi-IN-MadhurNeural", rate="-20%", pitch="-5Hz"
+                script, "en-IN-NeerjaNeural", rate="-15%", pitch="-5Hz"
             )
             await communicate.save(tmp_path)
+
         asyncio.run(_gen())
         with open(tmp_path, "rb") as f:
             audio_bytes = f.read()
@@ -130,6 +121,7 @@ for key in ["preset", "result", "voice_audio"]:
         st.session_state[key] = "" if key == "preset" else (None if key == "result" else {})
 
 
+# ── Sidebar
 with st.sidebar:
     st.markdown("## 🎶 Background Music")
     selected_track = st.selectbox("Choose ambient sound:", list(MUSIC_TRACKS.keys()), index=0)
@@ -166,6 +158,7 @@ with st.sidebar:
     st.markdown(f"**Total Shlokas:** {len(SHLOKAS)} across 18 chapters  \n**Themes:** 100+")
 
 
+# ── Header
 st.markdown("<h1 style='text-align:center; font-size:2.5rem;'>🕉️ Bhagavad Gita AI Therapist</h1>", unsafe_allow_html=True)
 st.markdown("<p style='text-align:center; color:#ffd700; font-size:17px;'>Share your struggles. Receive ancient wisdom. Find modern clarity.</p>", unsafe_allow_html=True)
 st.markdown("---")
@@ -177,6 +170,7 @@ c3.metric("🎭 Themes", "100+")
 c4.metric("🌐 Live", "Yes")
 st.markdown("---")
 
+# ── Emotions
 st.markdown("### 💛 How are you feeling right now?")
 st.caption("Tap a feeling or type your own below ⬇️")
 
@@ -202,6 +196,7 @@ for i, (label, val) in enumerate(EMOTIONS.items()):
         st.session_state.result = None
         st.session_state.voice_audio = {}
 
+# ── Input
 st.markdown("### ✏️ Describe your situation")
 user_input = st.text_area(
     "", value=st.session_state.preset,
@@ -220,6 +215,7 @@ if seek:
             st.session_state.result = get_gita_guidance(user_input)
         st.session_state.voice_audio = {}
 
+# ── Results
 if st.session_state.result:
     result = st.session_state.result
     st.markdown("---")
@@ -227,7 +223,6 @@ if st.session_state.result:
 
     for i, s in enumerate(result["shlokas"]):
         chapter_name = CHAPTER_NAMES.get(s['chapter'], '')
-        # Shloka text box (no iframe here)
         st.markdown(f"""
         <div class='shloka-box'>
             <h4 style='color:#ffd700; margin-top:0;'>
@@ -240,9 +235,20 @@ if st.session_state.result:
             <p style='color:#f0e6d3;'><b>Meaning:</b> {s['meaning']}</p>
         </div>
         """, unsafe_allow_html=True)
-        # YouTube player rendered OUTSIDE markdown using components.html
-        render_youtube_player(s)
 
+        voice_key = f"shloka_{i}"
+
+        # Auto-load audio if not yet in session
+        if voice_key not in st.session_state.voice_audio:
+            audio = get_shloka_audio(s)
+            if audio:
+                st.session_state.voice_audio[voice_key] = audio
+
+        if voice_key in st.session_state.voice_audio:
+            st.markdown("<p style='color:#ffd700; font-size:13px; margin:4px 0;'>🕉️ Sanskrit Chanting</p>", unsafe_allow_html=True)
+            st.audio(st.session_state.voice_audio[voice_key], format="audio/mp3")
+
+    # ── Guidance
     st.markdown("### 🧘 Krishna's Guidance for You")
     guidance_text = result['guidance']
     st.markdown(f"""
@@ -254,8 +260,8 @@ if st.session_state.result:
     """, unsafe_allow_html=True)
 
     if st.button("🔊 Hear Krishna's Guidance", key="btn_guidance"):
-        full_script = f"O Arjuna, {guidance_text}. O Arjuna, go forward with courage, and surrender to the divine."
-        with st.spinner("🕉️ Generating guidance voice..."):
+        full_script = f"O Arjuna, {guidance_text}. Go forward with courage, and surrender to the divine."
+        with st.spinner("🕉️ Generating voice..."):
             audio = make_guidance_voice(full_script)
         if audio:
             st.session_state.voice_audio["guidance"] = audio

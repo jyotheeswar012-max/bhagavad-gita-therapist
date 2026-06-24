@@ -6,8 +6,7 @@ import asyncio
 import edge_tts
 import os
 import tempfile
-import io
-from gtts import gTTS
+import requests
 
 st.set_page_config(
     page_title="Bhagavad Gita AI Therapist",
@@ -58,28 +57,39 @@ os.makedirs(CACHE_DIR, exist_ok=True)
 
 def get_shloka_audio(shloka: dict) -> bytes | None:
     """
-    Generate audio for EXACTLY this shloka using its transliteration.
-    - Uses gTTS lang='hi' (Devanagari-aware) slow=True for Sanskrit feel.
-    - Cached per shloka ID so never regenerated twice in a session.
-    - 100% exact match — reads the transliteration of this specific verse only.
+    Download real human Sanskrit chanting from IIT Kanpur Gita Supersite.
+    URL format: https://gitasupersite.iitk.ac.in/srimad?language=dv&field_chapter_value={ch}&field_nsutra_value={v}&audio=1
+    Falls back to archive.org T.S. Ranganathan chanting if IITK fails.
+    Cached in /tmp so it never re-downloads in the same session.
     """
-    cache_file = os.path.join(CACHE_DIR, f"{shloka['id']}.mp3")
+    ch = shloka["chapter"]
+    v  = shloka["verse"]
+    cache_file = os.path.join(CACHE_DIR, f"{ch}_{v}.mp3")
+
     if os.path.exists(cache_file):
         with open(cache_file, "rb") as f:
             return f.read()
-    try:
-        # Use the transliteration (Roman Sanskrit) — exact verse text
-        text = shloka["transliteration"]
-        tts = gTTS(text=text, lang="hi", slow=True)
-        buf = io.BytesIO()
-        tts.write_to_fp(buf)
-        buf.seek(0)
-        data = buf.read()
-        with open(cache_file, "wb") as f:
-            f.write(data)
-        return data
-    except Exception:
-        return None
+
+    # Primary: IIT Kanpur Gita Supersite (real Vedic scholar, exact verse)
+    urls_to_try = [
+        f"https://gitasupersite.iitk.ac.in/srimad?language=dv&field_chapter_value={ch}&field_nsutra_value={v}&audio=1",
+        # Fallback 1: bhagavad-gita.de ISKCON audio (Swarupa Damodara Dasa)
+        f"https://www.bhagavad-gita.de/Gita-Audio/BG{ch:02d}-{v:02d}.mp3",
+        # Fallback 2: archive.org T.S. Ranganathan chanting
+        f"https://archive.org/download/SrimadBhagavadGita_201712/BG_Ch{ch:02d}_Verse{v:03d}.mp3",
+    ]
+
+    for url in urls_to_try:
+        try:
+            r = requests.get(url, timeout=10, headers={"User-Agent": "Mozilla/5.0"})
+            if r.status_code == 200 and len(r.content) > 1000:
+                with open(cache_file, "wb") as f:
+                    f.write(r.content)
+                return r.content
+        except Exception:
+            continue
+
+    return None
 
 
 def make_guidance_voice(script: str) -> bytes | None:
@@ -215,20 +225,22 @@ if st.session_state.result:
         </div>
         """, unsafe_allow_html=True)
 
-        # Auto-generate and play exact-match shloka chant
-        vkey = f"s_{s['id']}"
+        vkey = f"s_{s['chapter']}_{s['verse']}"
         if vkey not in st.session_state.voice_audio:
-            audio = get_shloka_audio(s)
+            with st.spinner("🕉️ Loading chanting..."):
+                audio = get_shloka_audio(s)
             if audio:
                 st.session_state.voice_audio[vkey] = audio
 
         if vkey in st.session_state.voice_audio:
             st.markdown(
-                "<p style='color:#ffd700; font-size:13px; margin:8px 0 2px 0;'>"
-                "🕉️ Shloka Chanting — Exact Verse</p>",
+                f"<p style='color:#ffd700; font-size:13px; margin:8px 0 2px 0;'>"
+                f"🕉️ Chanting — Chapter {s['chapter']}, Verse {s['verse']}</p>",
                 unsafe_allow_html=True
             )
             st.audio(st.session_state.voice_audio[vkey], format="audio/mp3")
+        else:
+            st.caption("⚠️ Chanting not available for this verse.")
 
     st.markdown("### 🧘 Krishna's Guidance for You")
     guidance_text = result['guidance']

@@ -53,33 +53,34 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 
-# ── Real Sanskrit Audio from HuggingFace ────────────────────────────────────
+# ── Real Sanskrit Audio ─────────────────────────────────────────────────────
 def get_real_shloka_audio(chapter: int, verse: int):
     """
-    Fetch real Sanskrit recitation audio from HuggingFace dataset:
-    JDhruv14/Bhagavad-Gita_Audio
-    File path pattern: Chapter_{chapter:02d}/verse_{chapter}_{verse}.wav
+    Try multiple known sources for real Sanskrit Gita recitation audio.
+    Returns (audio_bytes, mime_type) or (None, None).
     """
-    base_url = "https://huggingface.co/datasets/JDhruv14/Bhagavad-Gita_Audio/resolve/main"
-    # Try common file naming patterns
-    patterns = [
-        f"Chapter_{chapter:02d}/verse_{chapter}_{verse}.wav",
-        f"Chapter_{chapter}/verse_{chapter}_{verse}.wav",
-        f"Chapter_{chapter:02d}/{chapter}_{verse}.wav",
-        f"chapter_{chapter}/verse_{chapter}_{verse}.wav",
+    urls_to_try = [
+        # Source 1: holy-bhagavad-gita.org
+        f"https://www.holy-bhagavad-gita.org/public/audio/shlokas/{chapter}/{verse}.mp3",
+        # Source 2: alternate pattern
+        f"https://www.holy-bhagavad-gita.org/public/audio/shlokas/ch{chapter:02d}v{verse:02d}.mp3",
+        # Source 3: bhagavad-gita.org
+        f"https://www.bhagavad-gita.org/static/audio/bg{chapter:02d}_{verse:02d}.mp3",
+        # Source 4: gitasupersite IITK
+        f"https://gitasupersite.iitk.ac.in/srimad/audio/shloka{chapter:02d}{verse:02d}.mp3",
     ]
-    for pattern in patterns:
-        url = f"{base_url}/{pattern}"
+    headers = {"User-Agent": "Mozilla/5.0"}
+    for url in urls_to_try:
         try:
-            resp = requests.get(url, timeout=10)
-            if resp.status_code == 200 and len(resp.content) > 1000:
-                return resp.content, "audio/wav"
+            resp = requests.get(url, timeout=8, headers=headers)
+            if resp.status_code == 200 and len(resp.content) > 2000:
+                return resp.content, "audio/mp3"
         except Exception:
             continue
     return None, None
 
 
-# ── TTS Fallback (for guidance only) ──────────────────────────────────────────
+# ── TTS Fallback ─────────────────────────────────────────────────────────────────
 def make_krishna_voice(script: str):
     try:
         with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as tmp:
@@ -226,14 +227,13 @@ if st.session_state.result:
 
         voice_key = f"shloka_{i}"
         if st.button(f"🔊 Hear Shloka {i+1} — Real Sanskrit Recitation", key=f"btn_{voice_key}"):
-            with st.spinner("🕉️ Loading real Sanskrit audio..."):
+            with st.spinner("🕉️ Loading Sanskrit recitation..."):
                 audio, fmt = get_real_shloka_audio(s['chapter'], s['verse'])
             if audio:
                 st.session_state.voice_audio[voice_key] = (audio, fmt)
-                st.success("✅ Real Sanskrit recitation loaded!")
+                st.success("✅ Real Sanskrit recitation!")
             else:
-                st.warning("⚠️ Real audio not available for this verse — using voice narration instead.")
-                # Fallback: TTS with meaning narration
+                # TTS fallback
                 script = f"O Arjuna, {s['transliteration']}. O Arjuna, {s['meaning']}. Reflect on these words, and act with devotion."
                 audio = make_krishna_voice(script)
                 if audio:

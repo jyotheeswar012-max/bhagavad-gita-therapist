@@ -5,6 +5,7 @@ from music import MUSIC_TRACKS
 import asyncio
 import edge_tts
 import os
+import re
 import tempfile
 
 st.set_page_config(
@@ -51,10 +52,23 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 
+def chant_rhythm(transliteration: str) -> str:
+    """
+    Split transliteration into word-by-word chunks with '...' pauses
+    to mimic real Sanskrit chanting rhythm.
+    e.g. 'Karmanye vadhikaraste ma phaleshu'
+      -> 'Karmanye... vadhikaraste... ma... phaleshu...'
+    """
+    words = re.split(r'[,\s\-]+', transliteration.strip())
+    words = [w.strip() for w in words if w.strip()]
+    return '... '.join(words) + '...'
+
+
 def build_krishna_script(shloka: dict) -> str:
+    chanted = chant_rhythm(shloka['transliteration'])
     return (
         f"O Arjuna... "
-        f"{shloka['transliteration']}... "
+        f"{chanted} "
         f"O Arjuna... "
         f"{shloka['meaning']}... "
         f"Reflect on these words... and act with devotion."
@@ -66,7 +80,7 @@ def make_krishna_voice(script: str):
         with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as tmp:
             tmp_path = tmp.name
         async def generate():
-            communicate = edge_tts.Communicate(script, "en-IN-PrabhatNeural", rate="-25%", pitch="-8Hz")
+            communicate = edge_tts.Communicate(script, "en-IN-PrabhatNeural", rate="-30%", pitch="-8Hz")
             await communicate.save(tmp_path)
         asyncio.run(generate())
         with open(tmp_path, "rb") as f:
@@ -205,7 +219,7 @@ if st.session_state.result:
 
         voice_key = f"shloka_{i}"
         if st.button(f"🔊 Hear Shloka {i+1} in Krishna's Voice", key=f"btn_{voice_key}"):
-            with st.spinner("🕉️ Generating Krishna's voice..."):
+            with st.spinner("🕉️ Chanting the shloka..."):
                 audio = make_krishna_voice(build_krishna_script(s))
             if audio:
                 st.session_state.voice_audio[voice_key] = audio

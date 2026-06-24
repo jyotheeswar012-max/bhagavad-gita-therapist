@@ -53,38 +53,54 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
+AUDIO_DIR = os.path.join("static", "audio")
 
-def make_sanskrit_chant(sanskrit_text: str):
+
+def clean_sanskrit(text: str) -> str:
+    text = re.sub(r'\|+\s*\d*\s*\|*', ' ', text)
+    text = re.sub(r'\s+', ' ', text)
+    return text.strip()
+
+
+def get_shloka_audio(shloka: dict) -> bytes | None:
     """
-    Use gTTS with Hindi (lang='hi') to read actual Devanagari Sanskrit.
-    Hindi and Sanskrit share the same Devanagari script,
-    so Google Hindi TTS pronounces Sanskrit shlokas authentically.
-    slow=True gives a slower, meditative chanting pace.
+    1. Try pre-generated local MP3 from static/audio/{id}.mp3
+    2. Fall back to live gTTS lang='hi' generation
     """
+    # 1 — local pre-generated file
+    local_path = os.path.join(AUDIO_DIR, f"{shloka['id']}.mp3")
+    if os.path.exists(local_path):
+        with open(local_path, "rb") as f:
+            return f.read()
+
+    # 2 — live gTTS fallback
     try:
-        # Remove verse number markers like ||47|| |1| etc, keep only Sanskrit text
-        clean = re.sub(r'\|+\d*\|*', ' ', sanskrit_text)
-        clean = re.sub(r'\s+', ' ', clean).strip()
+        clean = clean_sanskrit(shloka["sanskrit"])
         tts = gTTS(text=clean, lang='hi', slow=True)
         buf = io.BytesIO()
         tts.write_to_fp(buf)
         buf.seek(0)
-        return buf.read()
+        audio = buf.read()
+        # cache it locally for next time
+        os.makedirs(AUDIO_DIR, exist_ok=True)
+        with open(local_path, "wb") as f:
+            f.write(audio)
+        return audio
     except Exception:
         return None
 
 
-def make_krishna_guidance_voice(script: str):
-    """edge-tts Hindi neural voice for English guidance narration."""
+def make_guidance_voice(script: str) -> bytes | None:
+    """edge-tts Hindi neural voice for English guidance."""
     try:
         with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as tmp:
             tmp_path = tmp.name
-        async def generate():
+        async def _gen():
             communicate = edge_tts.Communicate(
                 script, "hi-IN-MadhurNeural", rate="-20%", pitch="-5Hz"
             )
             await communicate.save(tmp_path)
-        asyncio.run(generate())
+        asyncio.run(_gen())
         with open(tmp_path, "rb") as f:
             audio_bytes = f.read()
         os.unlink(tmp_path)
@@ -94,12 +110,9 @@ def make_krishna_guidance_voice(script: str):
 
 
 # ── Session state ───────────────────────────────────────────────────
-if "preset" not in st.session_state:
-    st.session_state.preset = ""
-if "result" not in st.session_state:
-    st.session_state.result = None
-if "voice_audio" not in st.session_state:
-    st.session_state.voice_audio = {}
+for key in ["preset", "result", "voice_audio"]:
+    if key not in st.session_state:
+        st.session_state[key] = "" if key == "preset" else (None if key == "result" else {})
 
 
 # ── Sidebar ────────────────────────────────────────────────────────────────────
@@ -221,16 +234,17 @@ if st.session_state.result:
 
         voice_key = f"shloka_{i}"
         if st.button(f"🔊 Hear Shloka {i+1} — Sanskrit Chanting", key=f"btn_{voice_key}"):
-            with st.spinner("🕉️ Chanting the shloka..."):
-                audio = make_sanskrit_chant(s['sanskrit'])
+            with st.spinner("🕉️ Chanting..."):
+                audio = get_shloka_audio(s)
             if audio:
                 st.session_state.voice_audio[voice_key] = audio
             else:
-                st.error("❌ Chanting failed. Check internet.")
+                st.error("❌ Could not load audio. Please check internet connection.")
 
         if voice_key in st.session_state.voice_audio:
             st.audio(st.session_state.voice_audio[voice_key], format="audio/mp3")
 
+    # Guidance
     st.markdown("### 🧘 Krishna's Guidance for You")
     guidance_text = result['guidance']
     st.markdown(f"""
@@ -247,7 +261,7 @@ if st.session_state.result:
             f"O Arjuna, go forward with courage, and surrender to the divine."
         )
         with st.spinner("🕉️ Generating guidance voice..."):
-            audio = make_krishna_guidance_voice(full_script)
+            audio = make_guidance_voice(full_script)
         if audio:
             st.session_state.voice_audio["guidance"] = audio
         else:

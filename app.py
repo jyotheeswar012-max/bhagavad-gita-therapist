@@ -2,6 +2,8 @@ import streamlit as st
 from therapist import get_gita_guidance
 from gita_data import SHLOKAS, CHAPTER_NAMES
 from music import MUSIC_TRACKS
+from gtts import gTTS
+import io
 import os
 
 st.set_page_config(
@@ -28,18 +30,6 @@ st.markdown("""
         padding: 22px;
         margin: 12px 0;
     }
-    .speak-btn {
-        background: linear-gradient(135deg, #ff6b00, #ffd700);
-        color: #1a0800;
-        font-weight: bold;
-        border: none;
-        border-radius: 8px;
-        padding: 7px 18px;
-        font-size: 14px;
-        cursor: pointer;
-        margin-top: 10px;
-    }
-    .speak-btn:hover { opacity: 0.85; }
     h1, h2, h3 { color: #ffd700 !important; }
     p { color: #f0e6d3; }
     .stTextArea textarea {
@@ -61,30 +51,16 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 
-def speak_button(text, button_id, label="🔊 Hear Krishna Speak"):
-    """Render a speak button using browser Web Speech API."""
-    # Escape text for safe JS embedding
-    safe_text = text.replace("'", "\\'").replace('"', '\\"').replace("\n", " ")
-    st.markdown(f"""
-        <button class="speak-btn" onclick="
-            window.speechSynthesis.cancel();
-            var u = new SpeechSynthesisUtterance('{safe_text}');
-            u.rate = 0.78;
-            u.pitch = 0.6;
-            u.volume = 1.0;
-            var voices = window.speechSynthesis.getVoices();
-            var preferred = voices.find(v =>
-                v.name.includes('Google UK English Male') ||
-                v.name.includes('David') ||
-                v.name.includes('Daniel') ||
-                v.name.includes('Male')
-            );
-            if (preferred) u.voice = preferred;
-            window.speechSynthesis.speak(u);
-        ">{label}</button>
-        &nbsp;
-        <button class="speak-btn" style="background:linear-gradient(135deg,#555,#333);color:#fff;" onclick="window.speechSynthesis.cancel();">&#9646;&#9646; Stop</button>
-    """, unsafe_allow_html=True)
+def text_to_audio(text):
+    """Convert text to audio bytes using gTTS."""
+    try:
+        tts = gTTS(text=text, lang='en', slow=True)
+        audio_buffer = io.BytesIO()
+        tts.write_to_fp(audio_buffer)
+        audio_buffer.seek(0)
+        return audio_buffer.read()
+    except Exception as e:
+        return None
 
 
 # ── Sidebar ────────────────────────────────────────────────────────────────────
@@ -210,7 +186,6 @@ if seek:
         st.markdown("---")
         st.markdown("### 📜 Shlokas for Your Situation")
         for i, s in enumerate(result["shlokas"]):
-            # Combine transliteration + meaning for speaking
             speak_text = f"Chapter {s['chapter']}, Verse {s['verse']}. {s['transliteration']}. Meaning: {s['meaning']}"
             st.markdown(
                 f"""
@@ -229,7 +204,14 @@ if seek:
             """,
                 unsafe_allow_html=True,
             )
-            speak_button(speak_text, f"shloka_{i}")
+            # gTTS voice button
+            with st.expander(f"🔊 Hear Shloka {i+1} in Krishna's Voice"):
+                with st.spinner("Generating voice..."):
+                    audio_bytes = text_to_audio(speak_text)
+                if audio_bytes:
+                    st.audio(audio_bytes, format="audio/mp3")
+                else:
+                    st.error("❌ Voice generation failed. Check internet connection.")
 
         st.markdown("### 🧘 Krishna's Guidance for You")
         guidance_text = result['guidance']
@@ -243,8 +225,13 @@ if seek:
         """,
             unsafe_allow_html=True,
         )
-        # Speak full guidance
-        speak_button(guidance_text, "guidance", label="🔊 Hear Krishna's Full Guidance")
+        with st.expander("🔊 Hear Krishna's Full Guidance"):
+            with st.spinner("Generating voice..."):
+                audio_bytes = text_to_audio(guidance_text)
+            if audio_bytes:
+                st.audio(audio_bytes, format="audio/mp3")
+            else:
+                st.error("❌ Voice generation failed.")
 
         st.markdown("---")
         st.markdown(

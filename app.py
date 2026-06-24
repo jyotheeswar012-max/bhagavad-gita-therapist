@@ -1,4 +1,5 @@
 import streamlit as st
+import streamlit.components.v1 as components
 from therapist import get_gita_guidance
 from gita_data import SHLOKAS, CHAPTER_NAMES
 from music import MUSIC_TRACKS
@@ -48,126 +49,65 @@ st.markdown("""
         font-size: 16px !important;
     }
     div[data-testid="stSidebar"] { background-color: #1a0800 !important; }
-    .chant-player iframe {
-        border-radius: 12px;
-        border: 1px solid #ff8c00;
-    }
 </style>
 """, unsafe_allow_html=True)
 
-# —— Authentic YouTube chanting video IDs per shloka (Chinmaya Mission Shorts)
-# Format: shloka_id -> YouTube video ID
+# Authentic YouTube chanting video IDs (Chinmaya Mission)
 CHANTING_VIDEOS = {
-    # Chapter 1
-    101: "VKz9H2IqJFM",   # Ch1 Shloka 1
-    102: "HA39qcJiYaM",   # Ch1 last verse - using the shared short as fallback
-    # Chapter 2
-    201: "2K7QmNvBp9c",
+    101: "VKz9H2IqJFM",
+    102: "HA39qcJiYaM",
+    201: "5Rl0aI65WZQ",
     202: "5Rl0aI65WZQ",
     203: "amq_uTN4PNY",
     204: "amq_uTN4PNY",
-    205: "7OZc6Ii7Vrc",   # Karmanye vadhikaraste
+    205: "7OZc6Ii7Vrc",
     206: "7OZc6Ii7Vrc",
     207: "7OZc6Ii7Vrc",
-    # Chapter 3
-    301: "RBqn1wFD_pg",
-    302: "RBqn1wFD_pg",
-    303: "RBqn1wFD_pg",
-    304: "RBqn1wFD_pg",
-    # Chapter 4
-    401: "-FNW40otavg",   # Ch4 Shloka 7 - yada yada hi dharmasya
+    401: "-FNW40otavg",
     402: "Ejyn4yOs-8A",
-    # Chapter 5
-    501: "RBqn1wFD_pg",
-    502: "RBqn1wFD_pg",
-    # Chapter 6
-    601: "RBqn1wFD_pg",
-    602: "RBqn1wFD_pg",
-    603: "RBqn1wFD_pg",
-    # Chapter 7
-    701: "RBqn1wFD_pg",
-    702: "RBqn1wFD_pg",
-    # Chapter 8
-    801: "RBqn1wFD_pg",
-    802: "RBqn1wFD_pg",
-    # Chapter 9
-    901: "RBqn1wFD_pg",
-    902: "RBqn1wFD_pg",
-    # Chapter 10
-    1001: "RBqn1wFD_pg",
-    1002: "RBqn1wFD_pg",
-    # Chapter 11
-    1101: "RBqn1wFD_pg",
-    # Chapter 12
     1201: "Mk0JJj9cGhg",
     1202: "Mk0JJj9cGhg",
-    # Chapter 13-18
-    1301: "RBqn1wFD_pg",
-    1401: "RBqn1wFD_pg",
-    1402: "RBqn1wFD_pg",
-    1501: "RBqn1wFD_pg",
-    1601: "RBqn1wFD_pg",
-    1602: "RBqn1wFD_pg",
-    1701: "RBqn1wFD_pg",
-    1801: "RBqn1wFD_pg",
-    1802: "RBqn1wFD_pg",
-    1803: "RBqn1wFD_pg",
-    1804: "RBqn1wFD_pg",
 }
 
-# Fallback full Gita chanting video with chapter timestamps
 CHAPTER_TIMESTAMPS = {
-    1:  0,
-    2:  874,
-    3:  2184,
-    4:  3004,
-    5:  3776,
-    6:  4320,
-    7:  5158,
-    8:  5701,
-    9:  6215,
-    10: 6838,
-    11: 7574,
-    12: 8613,
-    13: 8983,
-    14: 9562,
-    15: 10070,
-    16: 10495,
-    17: 10973,
-    18: 11516,
+    1: 0, 2: 874, 3: 2184, 4: 3004, 5: 3776,
+    6: 4320, 7: 5158, 8: 5701, 9: 6215, 10: 6838,
+    11: 7574, 12: 8613, 13: 8983, 14: 9562, 15: 10070,
+    16: 10495, 17: 10973, 18: 11516,
 }
 FULL_GITA_VIDEO = "RBqn1wFD_pg"
 
 
-def get_chanting_embed(shloka: dict) -> str:
-    """Return HTML iframe for authentic Sanskrit chanting."""
+def get_youtube_url(shloka: dict) -> str:
     vid_id = CHANTING_VIDEOS.get(shloka["id"])
-    if vid_id and vid_id != FULL_GITA_VIDEO:
-        # Individual shloka short
-        url = f"https://www.youtube.com/embed/{vid_id}?autoplay=0&rel=0"
-    else:
-        # Full Gita video seeked to the right chapter
-        t = CHAPTER_TIMESTAMPS.get(shloka["chapter"], 0)
-        url = f"https://www.youtube.com/embed/{FULL_GITA_VIDEO}?start={t}&autoplay=0&rel=0"
-    return f"""
-    <div class='chant-player' style='margin:10px 0;'>
-        <p style='color:#ffd700; font-size:13px; margin-bottom:6px;'>
+    if vid_id:
+        return f"https://www.youtube.com/embed/{vid_id}?autoplay=0&rel=0"
+    t = CHAPTER_TIMESTAMPS.get(shloka["chapter"], 0)
+    return f"https://www.youtube.com/embed/{FULL_GITA_VIDEO}?start={t}&autoplay=0&rel=0"
+
+
+def render_youtube_player(shloka: dict):
+    """Render YouTube iframe using st.components — bypasses Streamlit iframe stripping."""
+    url = get_youtube_url(shloka)
+    html = f"""
+    <div style="background:#1a0800; padding:8px 0;">
+        <p style="color:#ffd700; font-size:13px; margin:0 0 6px 0; font-family:sans-serif;">
             🕉️ Authentic Sanskrit Chanting — Chinmaya Mission
         </p>
         <iframe
-            width="100%" height="120"
+            width="100%" height="160"
             src="{url}"
             frameborder="0"
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
             allowfullscreen
-            style="border-radius:10px; border:1px solid #ff8c00;">
+            style="border-radius:10px; border:1px solid #ff8c00; display:block;">
         </iframe>
     </div>
     """
+    components.html(html, height=185)
 
 
 def make_guidance_voice(script: str) -> bytes | None:
-    """edge-tts Hindi neural voice for English guidance."""
     try:
         with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as tmp:
             tmp_path = tmp.name
@@ -287,6 +227,7 @@ if st.session_state.result:
 
     for i, s in enumerate(result["shlokas"]):
         chapter_name = CHAPTER_NAMES.get(s['chapter'], '')
+        # Shloka text box (no iframe here)
         st.markdown(f"""
         <div class='shloka-box'>
             <h4 style='color:#ffd700; margin-top:0;'>
@@ -297,9 +238,10 @@ if st.session_state.result:
             <p style='color:#aaa; font-style:italic; font-size:13px;'>{s['transliteration']}</p>
             <hr style='border-color:#4a1e00;'/>
             <p style='color:#f0e6d3;'><b>Meaning:</b> {s['meaning']}</p>
-            {get_chanting_embed(s)}
         </div>
         """, unsafe_allow_html=True)
+        # YouTube player rendered OUTSIDE markdown using components.html
+        render_youtube_player(s)
 
     st.markdown("### 🧘 Krishna's Guidance for You")
     guidance_text = result['guidance']

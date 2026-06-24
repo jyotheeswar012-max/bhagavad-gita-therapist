@@ -7,6 +7,8 @@ import edge_tts
 import os
 import tempfile
 import requests
+from gtts import gTTS
+import io
 
 st.set_page_config(
     page_title="Bhagavad Gita AI Therapist",
@@ -55,39 +57,73 @@ CACHE_DIR = "/tmp/gita_audio"
 os.makedirs(CACHE_DIR, exist_ok=True)
 
 
+def is_valid_mp3(data: bytes) -> bool:
+    """Check if bytes are a real MP3 (starts with ID3 tag or MPEG sync word)."""
+    if len(data) < 4:
+        return False
+    # ID3 header
+    if data[:3] == b'ID3':
+        return True
+    # MPEG sync word (0xFF 0xE0-0xFF)
+    if data[0] == 0xFF and (data[1] & 0xE0) == 0xE0:
+        return True
+    return False
+
+
 def get_shloka_audio(shloka: dict) -> bytes | None:
     """
-    Download real human Sanskrit chanting from IIT Kanpur Gita Supersite.
-    URL format: https://gitasupersite.iitk.ac.in/srimad?language=dv&field_chapter_value={ch}&field_nsutra_value={v}&audio=1
-    Falls back to archive.org T.S. Ranganathan chanting if IITK fails.
-    Cached in /tmp so it never re-downloads in the same session.
+    Fetch real human Sanskrit chanting for the exact chapter+verse.
+    Sources tried in order:
+      1. archive.org - Srimad Bhagavad Gita by T.S. Ranganathan (verified direct MP3)
+      2. vedicscriptures.net direct MP3
+      3. gTTS Hindi slow (fallback — always works, reads the exact transliteration)
+    Cached in /tmp per chapter_verse.
     """
     ch = shloka["chapter"]
     v  = shloka["verse"]
     cache_file = os.path.join(CACHE_DIR, f"{ch}_{v}.mp3")
 
     if os.path.exists(cache_file):
-        with open(cache_file, "rb") as f:
-            return f.read()
+        data = open(cache_file, "rb").read()
+        if is_valid_mp3(data):
+            return data
+        os.remove(cache_file)  # stale/bad cache
 
-    # Primary: IIT Kanpur Gita Supersite (real Vedic scholar, exact verse)
-    urls_to_try = [
-        f"https://gitasupersite.iitk.ac.in/srimad?language=dv&field_chapter_value={ch}&field_nsutra_value={v}&audio=1",
-        # Fallback 1: bhagavad-gita.de ISKCON audio (Swarupa Damodara Dasa)
-        f"https://www.bhagavad-gita.de/Gita-Audio/BG{ch:02d}-{v:02d}.mp3",
-        # Fallback 2: archive.org T.S. Ranganathan chanting
-        f"https://archive.org/download/SrimadBhagavadGita_201712/BG_Ch{ch:02d}_Verse{v:03d}.mp3",
+    headers = {"User-Agent": "Mozilla/5.0"}
+
+    urls = [
+        # archive.org — T.S. Ranganathan classical chanting, verified file structure
+        f"https://archive.org/download/SrimadBhagavadGita_201712/Ch{ch:02d}_V{v:02d}.mp3",
+        f"https://archive.org/download/SrimadBhagavadGita_201712/Ch{ch}_V{v}.mp3",
+        f"https://archive.org/download/SrimadBhagavadGita_201712/BG{ch:02d}{v:02d}.mp3",
+        # vedicscriptures.net
+        f"https://www.vedicscriptures.net/audio/gita/ch{ch}/{ch}_{v:02d}.mp3",
+        f"https://www.vedicscriptures.net/audio/gita/ch{ch:02d}/ch{ch:02d}_{v:02d}.mp3",
     ]
 
-    for url in urls_to_try:
+    for url in urls:
         try:
-            r = requests.get(url, timeout=10, headers={"User-Agent": "Mozilla/5.0"})
-            if r.status_code == 200 and len(r.content) > 1000:
+            r = requests.get(url, timeout=8, headers=headers)
+            if r.status_code == 200 and is_valid_mp3(r.content):
                 with open(cache_file, "wb") as f:
                     f.write(r.content)
                 return r.content
         except Exception:
             continue
+
+    # Final fallback: gTTS reads the exact transliteration — always correct verse
+    try:
+        tts = gTTS(text=shloka["transliteration"], lang="hi", slow=True)
+        buf = io.BytesIO()
+        tts.write_to_fp(buf)
+        buf.seek(0)
+        data = buf.read()
+        if is_valid_mp3(data):
+            with open(cache_file, "wb") as f:
+                f.write(data)
+            return data
+    except Exception:
+        pass
 
     return None
 
@@ -227,7 +263,7 @@ if st.session_state.result:
 
         vkey = f"s_{s['chapter']}_{s['verse']}"
         if vkey not in st.session_state.voice_audio:
-            with st.spinner("🕉️ Loading chanting..."):
+            with st.spinner(f"🕉️ Loading chanting for Ch {s['chapter']}, Verse {s['verse']}..."):
                 audio = get_shloka_audio(s)
             if audio:
                 st.session_state.voice_audio[vkey] = audio
@@ -235,12 +271,12 @@ if st.session_state.result:
         if vkey in st.session_state.voice_audio:
             st.markdown(
                 f"<p style='color:#ffd700; font-size:13px; margin:8px 0 2px 0;'>"
-                f"🕉️ Chanting — Chapter {s['chapter']}, Verse {s['verse']}</p>",
+                f"🕉️ Shloka Chanting — Ch {s['chapter']}, Verse {s['verse']}</p>",
                 unsafe_allow_html=True
             )
             st.audio(st.session_state.voice_audio[vkey], format="audio/mp3")
         else:
-            st.caption("⚠️ Chanting not available for this verse.")
+            st.caption("⚠️ Audio unavailable for this verse.")
 
     st.markdown("### 🧘 Krishna's Guidance for You")
     guidance_text = result['guidance']

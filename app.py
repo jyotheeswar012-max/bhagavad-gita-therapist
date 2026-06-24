@@ -53,8 +53,11 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# ✅ Absolute path — works on Streamlit Cloud and locally
 AUDIO_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static", "audio")
+
+# 🔍 DEBUG — shows path at top of page so we can verify
+st.caption(f"🔍 AUDIO_DIR = `{AUDIO_DIR}`")
+st.caption(f"🔍 exists = {os.path.exists(AUDIO_DIR)} | files = {len(os.listdir(AUDIO_DIR)) if os.path.exists(AUDIO_DIR) else 0}")
 
 
 def clean_sanskrit(text: str) -> str:
@@ -64,33 +67,23 @@ def clean_sanskrit(text: str) -> str:
 
 
 def get_shloka_audio(shloka: dict) -> bytes | None:
-    """
-    1. Try pre-generated local MP3 from static/audio/{id}.mp3
-    2. Fall back to live gTTS lang='hi' generation
-    """
     local_path = os.path.join(AUDIO_DIR, f"{shloka['id']}.mp3")
+    st.caption(f"🔍 Checking: `{local_path}` | exists={os.path.exists(local_path)}")
     if os.path.exists(local_path):
         with open(local_path, "rb") as f:
             return f.read()
-
-    # fallback: live gTTS
     try:
         clean = clean_sanskrit(shloka["sanskrit"])
         tts = gTTS(text=clean, lang='hi', slow=True)
         buf = io.BytesIO()
         tts.write_to_fp(buf)
         buf.seek(0)
-        audio = buf.read()
-        os.makedirs(AUDIO_DIR, exist_ok=True)
-        with open(local_path, "wb") as f:
-            f.write(audio)
-        return audio
+        return buf.read()
     except Exception:
         return None
 
 
 def make_guidance_voice(script: str) -> bytes | None:
-    """edge-tts Hindi neural voice for English guidance."""
     try:
         with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as tmp:
             tmp_path = tmp.name
@@ -108,13 +101,10 @@ def make_guidance_voice(script: str) -> bytes | None:
         return None
 
 
-# ── Session state
 for key in ["preset", "result", "voice_audio"]:
     if key not in st.session_state:
         st.session_state[key] = "" if key == "preset" else (None if key == "result" else {})
 
-
-# ── Sidebar
 with st.sidebar:
     st.markdown("## 🎶 Background Music")
     selected_track = st.selectbox("Choose ambient sound:", list(MUSIC_TRACKS.keys()), index=0)
@@ -130,7 +120,6 @@ with st.sidebar:
             st.error("❌ Audio file not found.")
     else:
         st.markdown("<p style='color:#aaa; font-size:13px;'>🔇 Music is off.</p>", unsafe_allow_html=True)
-
     st.markdown("---")
     st.markdown("## 📚 Browse All 18 Chapters")
     selected_chapter = st.selectbox(
@@ -151,8 +140,6 @@ with st.sidebar:
     st.markdown("---")
     st.markdown(f"**Total Shlokas:** {len(SHLOKAS)} across 18 chapters  \n**Themes:** 100+")
 
-
-# ── Header
 st.markdown("<h1 style='text-align:center; font-size:2.5rem;'>🕉️ Bhagavad Gita AI Therapist</h1>", unsafe_allow_html=True)
 st.markdown("<p style='text-align:center; color:#ffd700; font-size:17px;'>Share your struggles. Receive ancient wisdom. Find modern clarity.</p>", unsafe_allow_html=True)
 st.markdown("---")
@@ -164,7 +151,6 @@ c3.metric("🎭 Themes", "100+")
 c4.metric("🌐 Live", "Yes")
 st.markdown("---")
 
-# ── Emotion Buttons
 st.markdown("### 💛 How are you feeling right now?")
 st.caption("Tap a feeling or type your own below ⬇️")
 
@@ -190,7 +176,6 @@ for i, (label, val) in enumerate(EMOTIONS.items()):
         st.session_state.result = None
         st.session_state.voice_audio = {}
 
-# ── Input
 st.markdown("### ✏️ Describe your situation")
 user_input = st.text_area(
     "", value=st.session_state.preset,
@@ -209,10 +194,8 @@ if seek:
             st.session_state.result = get_gita_guidance(user_input)
         st.session_state.voice_audio = {}
 
-# ── Results
 if st.session_state.result:
     result = st.session_state.result
-
     st.markdown("---")
     st.markdown("### 📜 Shlokas for Your Situation")
 
@@ -243,7 +226,6 @@ if st.session_state.result:
         if voice_key in st.session_state.voice_audio:
             st.audio(st.session_state.voice_audio[voice_key], format="audio/mp3")
 
-    # Guidance
     st.markdown("### 🧘 Krishna's Guidance for You")
     guidance_text = result['guidance']
     st.markdown(f"""
@@ -255,10 +237,7 @@ if st.session_state.result:
     """, unsafe_allow_html=True)
 
     if st.button("🔊 Hear Krishna's Guidance", key="btn_guidance"):
-        full_script = (
-            f"O Arjuna, {guidance_text}. "
-            f"O Arjuna, go forward with courage, and surrender to the divine."
-        )
+        full_script = f"O Arjuna, {guidance_text}. O Arjuna, go forward with courage, and surrender to the divine."
         with st.spinner("🕉️ Generating guidance voice..."):
             audio = make_guidance_voice(full_script)
         if audio:

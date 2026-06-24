@@ -51,30 +51,14 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 
-# Divine address lines Krishna uses — rotated per shloka
-KRISHNA_ADDRESS = [
-    "O Arjuna,",
-    "O son of Kunti,",
-    "O Bharata,",
-    "O mighty-armed one,",
-    "O Partha,",
-    "O winner of wealth,",
-    "O sinless one,",
-    "O descendant of Bharata,",
-]
-
-
-def build_krishna_script(shloka: dict, index: int) -> str:
-    address = KRISHNA_ADDRESS[index % len(KRISHNA_ADDRESS)]
+def build_krishna_script(shloka: dict) -> str:
     chapter_name = CHAPTER_NAMES.get(shloka['chapter'], '').split(' — ')[0]
     script = (
+        f"O Arjuna... "
         f"From the Bhagavad Gita... Chapter {shloka['chapter']}... {chapter_name}... "
         f"Verse {shloka['verse']}... "
-        f"Shri Krishna speaks... "
-        f"{address}... "
-        f"{shloka['transliteration']}... "
-        f"...{address}... "
-        f"{shloka['meaning']}... "
+        f"O Arjuna... {shloka['transliteration']}... "
+        f"O Arjuna... {shloka['meaning']}... "
         f"Reflect on these words... and act with devotion."
     )
     return script
@@ -96,7 +80,7 @@ def make_krishna_voice(script: str):
         return None
 
 
-# ── Session state init ───────────────────────────────────────────────────
+# ── Session state ───────────────────────────────────────────────────
 if "preset" not in st.session_state:
     st.session_state.preset = ""
 if "result" not in st.session_state:
@@ -200,7 +184,7 @@ if seek:
             st.session_state.result = get_gita_guidance(user_input)
         st.session_state.voice_audio = {}
 
-# ── Results (persists across reruns) ───────────────────────────────────────────
+# ── Results ────────────────────────────────────────────────────────────────────
 if st.session_state.result:
     result = st.session_state.result
 
@@ -225,8 +209,7 @@ if st.session_state.result:
         voice_key = f"shloka_{i}"
         if st.button(f"🔊 Hear Shloka {i+1} in Krishna's Voice", key=f"btn_{voice_key}"):
             with st.spinner("🕉️ Generating Krishna's voice..."):
-                script = build_krishna_script(s, i)
-                audio = make_krishna_voice(script)
+                audio = make_krishna_voice(build_krishna_script(s))
             if audio:
                 st.session_state.voice_audio[voice_key] = audio
             else:
@@ -235,7 +218,6 @@ if st.session_state.result:
         if voice_key in st.session_state.voice_audio:
             st.audio(st.session_state.voice_audio[voice_key], format="audio/mp3")
 
-    # Guidance section
     st.markdown("### 🧘 Krishna's Guidance for You")
     guidance_text = result['guidance']
     st.markdown(f"""
@@ -248,9 +230,9 @@ if st.session_state.result:
 
     if st.button("🔊 Hear Krishna's Full Guidance", key="btn_guidance"):
         full_script = (
-            f"O Arjuna... hear these words of Shri Krishna... "
+            f"O Arjuna... "
             f"{guidance_text}... "
-            f"Go forward with courage... and surrender to the divine."
+            f"O Arjuna... go forward with courage... and surrender to the divine."
         )
         with st.spinner("🕉️ Generating Krishna's voice..."):
             audio = make_krishna_voice(full_script)

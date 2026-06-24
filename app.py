@@ -53,12 +53,7 @@ st.markdown("""
 
 
 def chant_rhythm(transliteration: str) -> str:
-    """
-    Split transliteration into word-by-word chunks with '...' pauses
-    to mimic real Sanskrit chanting rhythm.
-    e.g. 'Karmanye vadhikaraste ma phaleshu'
-      -> 'Karmanye... vadhikaraste... ma... phaleshu...'
-    """
+    """Split transliteration word-by-word with pauses for chanting rhythm."""
     words = re.split(r'[,\s\-]+', transliteration.strip())
     words = [w.strip() for w in words if w.strip()]
     return '... '.join(words) + '...'
@@ -75,14 +70,21 @@ def build_krishna_script(shloka: dict) -> str:
     )
 
 
+async def _generate_audio(script: str, path: str):
+    """Try hi-IN-MadhurNeural first (authentic Sanskrit), fallback to en-IN-PrabhatNeural."""
+    try:
+        communicate = edge_tts.Communicate(script, "hi-IN-MadhurNeural", rate="-30%", pitch="-5Hz")
+        await communicate.save(path)
+    except Exception:
+        communicate = edge_tts.Communicate(script, "en-IN-PrabhatNeural", rate="-30%", pitch="-8Hz")
+        await communicate.save(path)
+
+
 def make_krishna_voice(script: str):
     try:
         with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as tmp:
             tmp_path = tmp.name
-        async def generate():
-            communicate = edge_tts.Communicate(script, "en-IN-PrabhatNeural", rate="-30%", pitch="-8Hz")
-            await communicate.save(tmp_path)
-        asyncio.run(generate())
+        asyncio.run(_generate_audio(script, tmp_path))
         with open(tmp_path, "rb") as f:
             audio_bytes = f.read()
         os.unlink(tmp_path)

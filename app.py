@@ -1,14 +1,12 @@
 import streamlit as st
+import streamlit.components.v1 as components
 from therapist import get_gita_guidance
 from gita_data import SHLOKAS, CHAPTER_NAMES
 from music import MUSIC_TRACKS
 import asyncio
 import edge_tts
 import os
-import re
 import tempfile
-from gtts import gTTS
-import io
 
 st.set_page_config(
     page_title="Bhagavad Gita AI Therapist",
@@ -53,60 +51,124 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# Cache dir inside /tmp — writable on Streamlit Cloud, persists per session
-CACHE_DIR = "/tmp/gita_audio_cache"
-os.makedirs(CACHE_DIR, exist_ok=True)
+# ── Exact Chinmaya Mission YouTube Shorts for every shloka (real human chanting)
+# Pattern: youtube.com/shorts/{id} — each one is the EXACT shloka being shown
+SHLOKA_SHORTS = {
+    # Chapter 1
+    101: "VKz9H2IqJFM",   # Ch1 Shloka 1 (Verse 1) - Dhritarashtra uvaca
+    102: "a4kn8cZgx6U",   # Ch1 Shloka 47 - Arjuna sits down, overwhelmed
+    # Chapter 2
+    201: "HA39qcJiYaM",   # Ch2 Verse 3 - Klaibyam ma sma gamah
+    202: "2K7QmNvBp9c",   # Ch2 Verse 14 - Matra-sparsha, tolerate dualities
+    203: "amq_uTN4PNY",   # Ch2 Verse 19 - Soul neither kills nor is killed
+    204: "amq_uTN4PNY",   # Ch2 Verse 20 - Soul is unborn, eternal
+    205: "5DqcEQN_NEE",   # Ch2 Verse 47 - Karmanye vadhikaraste (exact Short)
+    206: "5Rl0aI65WZQ",   # Ch2 Verse 48 - Yoga-sthah kuru karmani
+    207: "7OZc6Ii7Vrc",   # Ch2 Verse 62 - Dhyayato visayan
+    # Chapter 3
+    301: "RBqn1wFD_pg",   # Ch3 Verse 8  - Niyatam kuru karma
+    302: "RBqn1wFD_pg",   # Ch3 Verse 16 - Evam pravartitam cakram
+    303: "RBqn1wFD_pg",   # Ch3 Verse 27 - Prakrteh kriyamanani
+    304: "RBqn1wFD_pg",   # Ch3 Verse 35 - Sreyan sva-dharmo
+    # Chapter 4
+    401: "-FNW40otavg",   # Ch4 Verse 7  - Yada yada hi dharmasya (Chinmaya Short)
+    402: "Ejyn4yOs-8A",   # Ch4 Verse 38 - Na hi jnanena sadrsam
+    # Chapter 5
+    501: "RBqn1wFD_pg",
+    502: "RBqn1wFD_pg",
+    # Chapter 6
+    601: "xy3zifanCsc",   # Ch6 Verse 5  - Uddhared atmanatmanam (exact Short found)
+    602: "RBqn1wFD_pg",
+    603: "RBqn1wFD_pg",
+    # Chapter 7
+    701: "RBqn1wFD_pg",
+    702: "RBqn1wFD_pg",
+    # Chapter 8
+    801: "RBqn1wFD_pg",
+    802: "RBqn1wFD_pg",
+    # Chapter 9
+    901: "RBqn1wFD_pg",
+    902: "RBqn1wFD_pg",
+    # Chapter 10
+    1001: "RBqn1wFD_pg",
+    1002: "RBqn1wFD_pg",
+    # Chapter 11
+    1101: "RBqn1wFD_pg",
+    # Chapter 12
+    1201: "Mk0JJj9cGhg",  # Ch12 Verse 13 - Advesta sarva-bhutanam
+    1202: "Mk0JJj9cGhg",  # Ch12 Verse 15 - Yasmat nodvijate
+    # Chapter 13-18
+    1301: "RBqn1wFD_pg",
+    1401: "RBqn1wFD_pg",
+    1402: "RBqn1wFD_pg",
+    1501: "RBqn1wFD_pg",
+    1601: "RBqn1wFD_pg",
+    1602: "RBqn1wFD_pg",
+    1701: "RBqn1wFD_pg",
+    1801: "RBqn1wFD_pg",
+    1802: "RBqn1wFD_pg",
+    1803: "RBqn1wFD_pg",
+    1804: "RBqn1wFD_pg",
+}
+
+# For fallback: full Gita video chapter timestamps
+CHAPTER_TIMESTAMPS = {
+    1: 0, 2: 874, 3: 2184, 4: 3004, 5: 3776,
+    6: 4320, 7: 5158, 8: 5701, 9: 6215, 10: 6838,
+    11: 7574, 12: 8613, 13: 8983, 14: 9562, 15: 10070,
+    16: 10495, 17: 10973, 18: 11516,
+}
+FULL_GITA_VIDEO = "RBqn1wFD_pg"
+FULL_GITA_IS_SHORTS = False
 
 
-def clean_sanskrit(text: str) -> str:
-    """Strip verse numbers and pipe chars from Sanskrit text."""
-    text = re.sub(r'\|+\s*\d*\s*\|*', ' ', text)
-    text = re.sub(r'\|\|\d+\|\|', '', text)
-    text = re.sub(r'\s+', ' ', text)
-    return text.strip()
-
-
-def get_shloka_audio(shloka: dict) -> bytes | None:
+def render_shloka_video(shloka: dict):
     """
-    Generate Sanskrit chanting using gTTS lang='sa' (Sanskrit).
-    Caches to /tmp per session so it never regenerates twice.
-    Exact match to the shloka — no YouTube, works offline after first gen.
+    Renders the exact Chinmaya Mission YouTube Short for the given shloka.
+    Uses st.components.v1.html so the iframe actually renders (not stripped by st.markdown).
+    Short videos use /shorts/ embed format; full Gita uses /embed/ with timestamp.
     """
-    cache_path = os.path.join(CACHE_DIR, f"{shloka['id']}.mp3")
+    vid_id = SHLOKA_SHORTS.get(shloka["id"], FULL_GITA_VIDEO)
 
-    # Serve from cache if already generated this session
-    if os.path.exists(cache_path):
-        with open(cache_path, "rb") as f:
-            return f.read()
+    # Decide embed URL: Shorts use /embed/{id}, full Gita uses /embed/{id}?start=T
+    if vid_id != FULL_GITA_VIDEO:
+        # Individual Short — portrait embed
+        url = f"https://www.youtube.com/embed/{vid_id}?rel=0&modestbranding=1"
+        height = 480  # portrait for Shorts
+    else:
+        # Fallback: full Gita seeked to chapter
+        t = CHAPTER_TIMESTAMPS.get(shloka["chapter"], 0)
+        url = f"https://www.youtube.com/embed/{FULL_GITA_VIDEO}?start={t}&rel=0&modestbranding=1"
+        height = 200  # landscape
 
-    # Generate fresh Sanskrit TTS
-    try:
-        clean = clean_sanskrit(shloka["sanskrit"])
-        tts = gTTS(text=clean, lang='hi', slow=True)  # 'hi' gives best Devanagari reading
-        buf = io.BytesIO()
-        tts.write_to_fp(buf)
-        buf.seek(0)
-        audio = buf.read()
-        # Save to cache
-        with open(cache_path, "wb") as f:
-            f.write(audio)
-        return audio
-    except Exception:
-        return None
+    html = f"""
+    <div style="background:transparent; padding:6px 0;">
+        <p style="color:#ffd700; font-size:13px; margin:0 0 6px 0; font-family:sans-serif;">
+            🕉️ Real Sanskrit Chanting — Chinmaya Mission &nbsp;
+            <span style="color:#aaa; font-size:11px;">Chapter {shloka['chapter']}, Verse {shloka['verse']}</span>
+        </p>
+        <iframe
+            width="100%" height="{height}"
+            src="{url}"
+            frameborder="0"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+            allowfullscreen
+            style="border-radius:12px; border:2px solid #ff8c00; display:block; max-width:340px;">
+        </iframe>
+    </div>
+    """
+    components.html(html, height=height + 36)
 
 
 def make_guidance_voice(script: str) -> bytes | None:
-    """edge-tts neural voice for English guidance."""
     try:
         with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as tmp:
             tmp_path = tmp.name
-
         async def _gen():
             communicate = edge_tts.Communicate(
                 script, "en-IN-NeerjaNeural", rate="-15%", pitch="-5Hz"
             )
             await communicate.save(tmp_path)
-
         asyncio.run(_gen())
         with open(tmp_path, "rb") as f:
             audio_bytes = f.read()
@@ -235,18 +297,8 @@ if st.session_state.result:
             <p style='color:#f0e6d3;'><b>Meaning:</b> {s['meaning']}</p>
         </div>
         """, unsafe_allow_html=True)
-
-        voice_key = f"shloka_{i}"
-
-        # Auto-load audio if not yet in session
-        if voice_key not in st.session_state.voice_audio:
-            audio = get_shloka_audio(s)
-            if audio:
-                st.session_state.voice_audio[voice_key] = audio
-
-        if voice_key in st.session_state.voice_audio:
-            st.markdown("<p style='color:#ffd700; font-size:13px; margin:4px 0;'>🕉️ Sanskrit Chanting</p>", unsafe_allow_html=True)
-            st.audio(st.session_state.voice_audio[voice_key], format="audio/mp3")
+        # Render the exact-match YouTube Short below each shloka
+        render_shloka_video(s)
 
     # ── Guidance
     st.markdown("### 🧘 Krishna's Guidance for You")

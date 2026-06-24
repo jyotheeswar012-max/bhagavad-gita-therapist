@@ -52,16 +52,13 @@ st.markdown("""
 
 
 def build_krishna_script(shloka: dict) -> str:
-    chapter_name = CHAPTER_NAMES.get(shloka['chapter'], '').split(' — ')[0]
-    script = (
+    return (
         f"O Arjuna... "
-        f"From the Bhagavad Gita... Chapter {shloka['chapter']}... {chapter_name}... "
-        f"Verse {shloka['verse']}... "
-        f"O Arjuna... {shloka['transliteration']}... "
-        f"O Arjuna... {shloka['meaning']}... "
+        f"{shloka['transliteration']}... "
+        f"O Arjuna... "
+        f"{shloka['meaning']}... "
         f"Reflect on these words... and act with devotion."
     )
-    return script
 
 
 def make_krishna_voice(script: str):

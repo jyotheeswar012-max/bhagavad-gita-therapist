@@ -9,6 +9,7 @@ import tempfile
 import requests
 from gtts import gTTS
 import io
+import re
 
 st.set_page_config(
     page_title="Bhagavad Gita AI Therapist",
@@ -67,19 +68,31 @@ def is_valid_mp3(data: bytes) -> bool:
     return False
 
 
-def get_elevenlabs_audio(text: str) -> bytes | None:
-    """Generate real human voice using ElevenLabs API."""
+def clean_sanskrit(text: str) -> str:
+    """Remove verse numbers like ||47|| or |1| from Sanskrit text for cleaner TTS."""
+    text = re.sub(r'[|\u0964\u0965]+\s*\d*\s*[|\u0964\u0965]*', ' ', text)
+    text = text.strip()
+    return text
+
+
+def get_elevenlabs_audio(text: str, voice_id: str = None) -> bytes | None:
+    """
+    Generate audio using ElevenLabs.
+    Default voice: Shilpa (Indian Hindi female) - sounds natural with Devanagari Sanskrit.
+    Voice IDs:
+      - Shilpa (Indian female):  pFZP5JQG7iQjIQuC4Bku
+      - Neeraj (Indian male):    7omZpHkO3hCpJJCNqJUe  
+      - Meera (Indian female):   7omZpHkO3hCpJJCNqJUe
+    """
     try:
         api_key = st.secrets.get("ELEVENLABS_API_KEY", "")
         if not api_key:
             return None
 
-        # "Adam" voice — deep, calm, masculine. Voice ID: pNInz6obpgDQGcFmaJgB
-        # "Antoni" — warm baritone. Voice ID: ErXwobaYiN019PkySvjV
-        # Using "Adam" for a deep spiritual feel
-        voice_id = "pNInz6obpgDQGcFmaJgB"
+        # Shilpa — Indian Hindi female voice, handles Devanagari naturally
+        vid = voice_id or "pFZP5JQG7iQjIQuC4Bku"
 
-        url = f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}"
+        url = f"https://api.elevenlabs.io/v1/text-to-speech/{vid}"
         headers = {
             "xi-api-key": api_key,
             "Content-Type": "application/json",
@@ -88,15 +101,24 @@ def get_elevenlabs_audio(text: str) -> bytes | None:
             "text": text,
             "model_id": "eleven_multilingual_v2",
             "voice_settings": {
-                "stability": 0.75,
+                "stability": 0.80,
                 "similarity_boost": 0.75,
-                "style": 0.3,
+                "style": 0.2,
                 "use_speaker_boost": True
             }
         }
         r = requests.post(url, json=payload, headers=headers, timeout=20)
         if r.status_code == 200 and is_valid_mp3(r.content):
             return r.content
+        # If Shilpa not available, fallback to multilingual v2 with Charlie
+        if r.status_code in [400, 404]:
+            payload["voice_settings"]["stability"] = 0.85
+            r2 = requests.post(
+                "https://api.elevenlabs.io/v1/text-to-speech/IKne3meq5aSn9XLyUdCD",
+                json=payload, headers=headers, timeout=20
+            )
+            if r2.status_code == 200 and is_valid_mp3(r2.content):
+                return r2.content
     except Exception:
         pass
     return None
@@ -104,9 +126,9 @@ def get_elevenlabs_audio(text: str) -> bytes | None:
 
 def get_shloka_audio(shloka: dict) -> bytes | None:
     """
-    Get Sanskrit shloka audio.
-    1. ElevenLabs (real human voice — primary)
-    2. gTTS Hindi slow (fallback — always works)
+    Get Sanskrit shloka audio using Devanagari text.
+    1. ElevenLabs with Indian voice reading Devanagari Sanskrit (primary)
+    2. gTTS Hindi slow reading Devanagari (fallback — always works)
     Cached in /tmp per chapter_verse.
     """
     ch = shloka["chapter"]
@@ -119,17 +141,19 @@ def get_shloka_audio(shloka: dict) -> bytes | None:
             return data
         os.remove(cache_file)
 
-    # 1. Try ElevenLabs with the transliteration text
-    text = shloka.get("transliteration", "")
-    audio = get_elevenlabs_audio(text)
+    # Use Devanagari Sanskrit text — sounds like real chanting
+    sanskrit_text = clean_sanskrit(shloka.get("sanskrit", ""))
+
+    # 1. ElevenLabs — Indian voice with Devanagari
+    audio = get_elevenlabs_audio(sanskrit_text)
     if audio:
         with open(cache_file, "wb") as f:
             f.write(audio)
         return audio
 
-    # 2. gTTS fallback
+    # 2. gTTS Hindi — reads Devanagari natively, slow for clarity
     try:
-        tts = gTTS(text=text, lang="hi", slow=True)
+        tts = gTTS(text=sanskrit_text, lang="hi", slow=True)
         buf = io.BytesIO()
         tts.write_to_fp(buf)
         buf.seek(0)
@@ -145,11 +169,7 @@ def get_shloka_audio(shloka: dict) -> bytes | None:
 
 
 def make_guidance_voice(script: str) -> bytes | None:
-    # Try ElevenLabs first for guidance too
-    audio = get_elevenlabs_audio(script)
-    if audio:
-        return audio
-    # Fallback to edge_tts
+    # English guidance — use edge_tts Indian English voice
     try:
         with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as tmp:
             tmp_path = tmp.name

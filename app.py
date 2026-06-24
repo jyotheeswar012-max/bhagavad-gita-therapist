@@ -58,25 +58,55 @@ os.makedirs(CACHE_DIR, exist_ok=True)
 
 
 def is_valid_mp3(data: bytes) -> bool:
-    """Check if bytes are a real MP3 (starts with ID3 tag or MPEG sync word)."""
     if len(data) < 4:
         return False
-    # ID3 header
     if data[:3] == b'ID3':
         return True
-    # MPEG sync word (0xFF 0xE0-0xFF)
     if data[0] == 0xFF and (data[1] & 0xE0) == 0xE0:
         return True
     return False
 
 
+def get_elevenlabs_audio(text: str) -> bytes | None:
+    """Generate real human voice using ElevenLabs API."""
+    try:
+        api_key = st.secrets.get("ELEVENLABS_API_KEY", "")
+        if not api_key:
+            return None
+
+        # "Adam" voice — deep, calm, masculine. Voice ID: pNInz6obpgDQGcFmaJgB
+        # "Antoni" — warm baritone. Voice ID: ErXwobaYiN019PkySvjV
+        # Using "Adam" for a deep spiritual feel
+        voice_id = "pNInz6obpgDQGcFmaJgB"
+
+        url = f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}"
+        headers = {
+            "xi-api-key": api_key,
+            "Content-Type": "application/json",
+        }
+        payload = {
+            "text": text,
+            "model_id": "eleven_multilingual_v2",
+            "voice_settings": {
+                "stability": 0.75,
+                "similarity_boost": 0.75,
+                "style": 0.3,
+                "use_speaker_boost": True
+            }
+        }
+        r = requests.post(url, json=payload, headers=headers, timeout=20)
+        if r.status_code == 200 and is_valid_mp3(r.content):
+            return r.content
+    except Exception:
+        pass
+    return None
+
+
 def get_shloka_audio(shloka: dict) -> bytes | None:
     """
-    Fetch real human Sanskrit chanting for the exact chapter+verse.
-    Sources tried in order:
-      1. archive.org - Srimad Bhagavad Gita by T.S. Ranganathan (verified direct MP3)
-      2. vedicscriptures.net direct MP3
-      3. gTTS Hindi slow (fallback — always works, reads the exact transliteration)
+    Get Sanskrit shloka audio.
+    1. ElevenLabs (real human voice — primary)
+    2. gTTS Hindi slow (fallback — always works)
     Cached in /tmp per chapter_verse.
     """
     ch = shloka["chapter"]
@@ -87,33 +117,19 @@ def get_shloka_audio(shloka: dict) -> bytes | None:
         data = open(cache_file, "rb").read()
         if is_valid_mp3(data):
             return data
-        os.remove(cache_file)  # stale/bad cache
+        os.remove(cache_file)
 
-    headers = {"User-Agent": "Mozilla/5.0"}
+    # 1. Try ElevenLabs with the transliteration text
+    text = shloka.get("transliteration", "")
+    audio = get_elevenlabs_audio(text)
+    if audio:
+        with open(cache_file, "wb") as f:
+            f.write(audio)
+        return audio
 
-    urls = [
-        # archive.org — T.S. Ranganathan classical chanting, verified file structure
-        f"https://archive.org/download/SrimadBhagavadGita_201712/Ch{ch:02d}_V{v:02d}.mp3",
-        f"https://archive.org/download/SrimadBhagavadGita_201712/Ch{ch}_V{v}.mp3",
-        f"https://archive.org/download/SrimadBhagavadGita_201712/BG{ch:02d}{v:02d}.mp3",
-        # vedicscriptures.net
-        f"https://www.vedicscriptures.net/audio/gita/ch{ch}/{ch}_{v:02d}.mp3",
-        f"https://www.vedicscriptures.net/audio/gita/ch{ch:02d}/ch{ch:02d}_{v:02d}.mp3",
-    ]
-
-    for url in urls:
-        try:
-            r = requests.get(url, timeout=8, headers=headers)
-            if r.status_code == 200 and is_valid_mp3(r.content):
-                with open(cache_file, "wb") as f:
-                    f.write(r.content)
-                return r.content
-        except Exception:
-            continue
-
-    # Final fallback: gTTS reads the exact transliteration — always correct verse
+    # 2. gTTS fallback
     try:
-        tts = gTTS(text=shloka["transliteration"], lang="hi", slow=True)
+        tts = gTTS(text=text, lang="hi", slow=True)
         buf = io.BytesIO()
         tts.write_to_fp(buf)
         buf.seek(0)
@@ -129,6 +145,11 @@ def get_shloka_audio(shloka: dict) -> bytes | None:
 
 
 def make_guidance_voice(script: str) -> bytes | None:
+    # Try ElevenLabs first for guidance too
+    audio = get_elevenlabs_audio(script)
+    if audio:
+        return audio
+    # Fallback to edge_tts
     try:
         with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as tmp:
             tmp_path = tmp.name

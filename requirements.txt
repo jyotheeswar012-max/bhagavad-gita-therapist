@@ -4,3 +4,4 @@ edge-tts
 python-dotenv
 gtts
 Pillow
+requests

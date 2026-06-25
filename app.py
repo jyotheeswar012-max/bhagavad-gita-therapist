@@ -25,7 +25,6 @@ st.markdown("""
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400;1,700&family=Inter:wght@300;400;500&display=swap');
 
-  /* ── Reset & Base ── */
   .stApp {
     background: #0d0500 !important;
     font-family: 'Inter', sans-serif;
@@ -34,21 +33,16 @@ st.markdown("""
     padding: 0 !important;
     max-width: 100% !important;
   }
-
-  /* ── Hide default streamlit chrome ── */
   #MainMenu, footer, header { visibility: hidden; }
   .stDeployButton { display: none; }
 
-  /* ── Sidebar ── */
   div[data-testid="stSidebar"] {
     background: #0a0300 !important;
     border-right: 1px solid #2a1200 !important;
   }
   div[data-testid="stSidebar"] * { color: #d4a96a !important; }
   div[data-testid="stSidebar"] h2 { color: #ffd700 !important; font-family: 'Playfair Display', serif !important; }
-  div[data-testid="stSidebar"] .stSelectbox label { color: #a07040 !important; }
 
-  /* ── Hero section ── */
   .hero-wrap {
     min-height: 100vh;
     background: radial-gradient(ellipse at 30% 50%, #2a0e00 0%, #0d0500 60%);
@@ -57,16 +51,9 @@ st.markdown("""
     padding: 60px 6vw;
     gap: 4vw;
   }
-  .hero-left {
-    flex: 1.1;
-    min-width: 0;
-  }
-  .hero-right {
-    flex: 0.9;
-    min-width: 0;
-  }
+  .hero-left { flex: 1.1; min-width: 0; }
+  .hero-right { flex: 0.9; min-width: 0; }
 
-  /* ── Tagline ── */
   .tagline {
     letter-spacing: 0.22em;
     font-size: 11px;
@@ -75,8 +62,6 @@ st.markdown("""
     margin-bottom: 28px;
     font-weight: 400;
   }
-
-  /* ── Hero headline ── */
   .hero-h1 {
     font-family: 'Playfair Display', Georgia, serif;
     font-size: clamp(2.4rem, 5vw, 4rem);
@@ -98,8 +83,6 @@ st.markdown("""
     max-width: 480px;
     font-weight: 300;
   }
-
-  /* ── CTA buttons ── */
   .cta-row {
     display: flex;
     align-items: center;
@@ -107,34 +90,6 @@ st.markdown("""
     margin-bottom: 44px;
     flex-wrap: wrap;
   }
-  .btn-primary {
-    background: linear-gradient(135deg, #e87000, #ffc200);
-    color: #1a0800;
-    font-weight: 600;
-    font-size: 15px;
-    padding: 14px 32px;
-    border-radius: 50px;
-    border: none;
-    cursor: pointer;
-    text-decoration: none;
-    display: inline-block;
-    transition: opacity 0.2s;
-    font-family: 'Inter', sans-serif;
-    letter-spacing: 0.02em;
-  }
-  .btn-primary:hover { opacity: 0.88; }
-  .btn-ghost {
-    color: #9a8060;
-    font-size: 14px;
-    font-weight: 400;
-    cursor: pointer;
-    border: none;
-    background: none;
-    font-family: 'Inter', sans-serif;
-    letter-spacing: 0.01em;
-  }
-
-  /* ── Emotion chips ── */
   .chips-label {
     font-size: 10px;
     letter-spacing: 0.18em;
@@ -156,13 +111,8 @@ st.markdown("""
     color: #c8a878;
     background: rgba(255,255,255,0.02);
     cursor: pointer;
-    transition: border-color 0.2s, color 0.2s;
     font-family: 'Inter', sans-serif;
   }
-  .chip:hover { border-color: #e87000; color: #ffd700; }
-  .chip-active { border-color: #e87000 !important; color: #ffd700 !important; background: rgba(232,112,0,0.08) !important; }
-
-  /* ── Krishna image card ── */
   .krishna-card {
     position: relative;
     border-radius: 24px;
@@ -203,35 +153,11 @@ st.markdown("""
     margin-top: 4px;
     letter-spacing: 0.05em;
   }
-
-  /* ── Input section ── */
   .input-section {
     background: radial-gradient(ellipse at 50% 0%, #1a0800 0%, #0d0500 70%);
     padding: 70px 8vw 60px 8vw;
     border-top: 1px solid #1e0d00;
   }
-  .section-eyebrow {
-    font-size: 11px;
-    letter-spacing: 0.2em;
-    text-transform: uppercase;
-    color: #6a5030;
-    margin-bottom: 12px;
-  }
-  .section-title {
-    font-family: 'Playfair Display', serif;
-    font-size: clamp(1.8rem, 3vw, 2.6rem);
-    color: #f5e6cc;
-    margin-bottom: 10px;
-    font-weight: 700;
-  }
-  .section-sub {
-    font-size: 14px;
-    color: #7a6040;
-    margin-bottom: 36px;
-    font-weight: 300;
-  }
-
-  /* ── Text area override ── */
   .stTextArea textarea {
     background: rgba(255,255,255,0.03) !important;
     border: 1px solid #2a1800 !important;
@@ -245,8 +171,6 @@ st.markdown("""
     border-color: #e87000 !important;
     box-shadow: 0 0 0 2px rgba(232,112,0,0.15) !important;
   }
-
-  /* ── Seek button ── */
   .stButton > button {
     background: linear-gradient(135deg, #e87000, #ffc200) !important;
     color: #1a0800 !important;
@@ -257,18 +181,13 @@ st.markdown("""
     padding: 14px 36px !important;
     font-family: 'Inter', sans-serif !important;
     letter-spacing: 0.02em !important;
-    transition: opacity 0.2s !important;
   }
-  .stButton > button:hover { opacity: 0.88 !important; }
-
-  /* ── Shloka result card ── */
   .shloka-box {
     background: linear-gradient(135deg, rgba(45,18,0,0.9), rgba(74,30,0,0.8));
     border: 1px solid rgba(255,140,0,0.3);
     border-radius: 20px;
     padding: 28px;
     margin: 16px 0;
-    backdrop-filter: blur(8px);
   }
   .guidance-box {
     background: linear-gradient(135deg, rgba(10,22,40,0.9), rgba(26,45,74,0.8));
@@ -277,16 +196,6 @@ st.markdown("""
     padding: 28px;
     margin: 16px 0;
   }
-  .history-card {
-    background: rgba(26,26,10,0.7);
-    border: 1px solid #2a2a10;
-    border-left: 3px solid #ffd700;
-    border-radius: 14px;
-    padding: 16px 20px;
-    margin: 8px 0;
-  }
-
-  /* ── Disclaimer / Privacy ── */
   .disclaimer-box {
     background: rgba(26,10,0,0.7);
     border: 1px solid rgba(255,107,53,0.3);
@@ -303,8 +212,6 @@ st.markdown("""
     padding: 14px 20px;
     margin: 10px 0;
   }
-
-  /* ── Stats bar ── */
   .stats-bar {
     display: flex;
     gap: 40px;
@@ -326,13 +233,6 @@ st.markdown("""
     text-transform: uppercase;
     margin-top: 4px;
   }
-
-  /* ── Metrics hide default style ── */
-  div[data-testid="stMetric"] {
-    background: transparent !important;
-  }
-
-  /* ── Mobile ── */
   @media (max-width: 768px) {
     .hero-wrap { flex-direction: column; padding: 40px 5vw; min-height: auto; }
     .hero-right { width: 100%; }
@@ -346,6 +246,9 @@ st.markdown("""
 CACHE_DIR = "/tmp/gita_audio"
 os.makedirs(CACHE_DIR, exist_ok=True)
 
+# Raw GitHub URL for the hero Krishna image
+HERO_IMG_URL = "https://raw.githubusercontent.com/jyotheeswar012-max/bhagavad-gita-therapist/main/assets/krishna_flute.jpg"
+
 IMAGE_SETS = {
     "krishna_arjuna": {
         "local": "assets/krishna_arjuna.jpg",
@@ -357,8 +260,10 @@ IMAGE_SETS = {
     },
     "krishna_flute": {
         "local": "assets/krishna_flute.jpg",
+        "min_size": 100000,
         "urls": [
-            "https://www.holy-bhagavad-gita.org/public/img/krishna-flute.jpg",
+            HERO_IMG_URL,
+            "https://upload.wikimedia.org/wikipedia/commons/thumb/b/b5/BhagavatamKrishna.jpg/800px-BhagavatamKrishna.jpg",
         ],
         "label": "Lord Krishna",
     },
@@ -402,15 +307,19 @@ def load_images() -> dict:
         "Accept": "image/webp,image/apng,image/*,*/*;q=0.8",
     }
     for name, cfg in IMAGE_SETS.items():
+        min_size = cfg.get("min_size", 5000)
+        # Use local file only if it's large enough (not a placeholder)
         if os.path.exists(cfg["local"]):
             try:
-                imgs[name] = Image.open(cfg["local"]).convert("RGB")
-                continue
+                if os.path.getsize(cfg["local"]) >= min_size:
+                    imgs[name] = Image.open(cfg["local"]).convert("RGB")
+                    continue
             except Exception:
                 pass
+        # Try URLs in order
         for url in cfg["urls"]:
             try:
-                r = requests.get(url, headers=headers, timeout=8)
+                r = requests.get(url, headers=headers, timeout=12)
                 if r.status_code == 200 and len(r.content) > 5000:
                     imgs[name] = Image.open(io.BytesIO(r.content)).convert("RGB")
                     break
@@ -426,7 +335,7 @@ IMGS = load_images()
 
 def img_to_b64(img: Image.Image) -> str:
     buf = io.BytesIO()
-    img.save(buf, format="JPEG", quality=88)
+    img.save(buf, format="JPEG", quality=90)
     return base64.b64encode(buf.getvalue()).decode()
 
 
@@ -574,7 +483,7 @@ def make_guidance_voice(script: str) -> bytes | None:
         return None
 
 
-# ── Session state ────────────────────────────────────────────────────────────
+# ── Session state ──
 DEFAULTS = {
     "preset": "",
     "result": None,
@@ -588,7 +497,7 @@ for k, v in DEFAULTS.items():
         st.session_state[k] = v
 
 
-# ── SIDEBAR ──────────────────────────────────────────────────────────────────
+# ── SIDEBAR ──
 with st.sidebar:
     st.image(IMGS["krishna_flute"], use_container_width=True)
     st.markdown("## 🎶 Background Music")
@@ -649,11 +558,7 @@ with st.sidebar:
     """, unsafe_allow_html=True)
 
 
-# ──────────────────────────────────────────────────────────────────────────────
-# HERO SECTION
-# ──────────────────────────────────────────────────────────────────────────────
-
-# Pick a rotating featured verse for the hero card
+# ── HERO ──
 FEATURED_VERSES = [
     {"sanskrit": "वासांसि जीर्णानि यथा विहाय।", "english": "\"As one casts off worn-out clothes, the soul takes on new forms.\"", "ref": "2.22"},
     {"sanskrit": "कर्मण्येवाधिकारस्ते।", "english": "\"You have a right to perform your duties, but not to the fruits thereof.\"", "ref": "2.47"},
@@ -716,14 +621,12 @@ st.markdown(f"""
 """, unsafe_allow_html=True)
 
 
-# ──────────────────────────────────────────────────────────────────────────────
-# INPUT SECTION
-# ──────────────────────────────────────────────────────────────────────────────
+# ── INPUT SECTION ──
 st.markdown("""
 <div class="input-section">
-  <p class="section-eyebrow">· begin your conversation ·</p>
-  <h2 class="section-title">What weighs on your heart?</h2>
-  <p class="section-sub">Speak freely. Krishna listened to Arjuna’s deepest fears. He will listen to yours.</p>
+  <p style='font-size:11px;letter-spacing:0.2em;text-transform:uppercase;color:#6a5030;margin-bottom:10px;'>· begin your conversation ·</p>
+  <h2 style='font-family:Playfair Display,serif;font-size:clamp(1.8rem,3vw,2.6rem);color:#f5e6cc;margin-bottom:10px;font-weight:700;'>What weighs on your heart?</h2>
+  <p style='font-size:14px;color:#7a6040;margin-bottom:36px;font-weight:300;'>Speak freely. Krishna listened to Arjuna’s deepest fears. He will listen to yours.</p>
 </div>
 """, unsafe_allow_html=True)
 
@@ -742,35 +645,31 @@ EMOTIONS = {
     "Rage":        "I have uncontrolled anger and rage that I cannot manage",
 }
 
-st.markdown("<p style='color:#6a5030;font-size:11px;letter-spacing:0.18em;text-transform:uppercase;margin:0 0 12px 0;padding: 0 8vw;'>Choose a feeling or type below</p>", unsafe_allow_html=True)
+st.markdown("<p style='color:#6a5030;font-size:11px;letter-spacing:0.18em;text-transform:uppercase;margin:0 0 12px 0;'>Choose a feeling or type below</p>", unsafe_allow_html=True)
 
-with st.container():
-    cols = st.columns(6)
-    for i, (label, val) in enumerate(EMOTIONS.items()):
-        if cols[i % 6].button(label, use_container_width=True, key=f"chip_{label}"):
-            st.session_state.preset = val
-            st.session_state.result = None
-            st.session_state.voice_audio = {}
+cols = st.columns(6)
+for i, (label, val) in enumerate(EMOTIONS.items()):
+    if cols[i % 6].button(label, use_container_width=True, key=f"chip_{label}"):
+        st.session_state.preset = val
+        st.session_state.result = None
+        st.session_state.voice_audio = {}
 
-with st.container():
-    st.markdown("<div style='padding:0 0;'>", unsafe_allow_html=True)
-    user_input = st.text_area(
-        "",
-        value=st.session_state.preset,
-        placeholder="Share what\u2019s on your mind\u2026 e.g. I feel anxious about the future and nothing feels certain.",
-        height=140,
-        label_visibility="collapsed",
-    )
-    col1, col2, col3 = st.columns([1.5, 2, 1.5])
-    with col2:
-        seek = st.button("🕉️  Seek Krishna\u2019s Guidance", use_container_width=True)
-    st.markdown("</div>", unsafe_allow_html=True)
+user_input = st.text_area(
+    "",
+    value=st.session_state.preset,
+    placeholder="Share what’s on your mind… e.g. I feel anxious about the future and nothing feels certain.",
+    height=140,
+    label_visibility="collapsed",
+)
+col1, col2, col3 = st.columns([1.5, 2, 1.5])
+with col2:
+    seek = st.button("🕉️  Seek Krishna’s Guidance", use_container_width=True)
 
 if seek:
     if not user_input.strip():
         st.warning("⚠️ Please describe your situation or choose a feeling above.")
     else:
-        with st.spinner("🕉️ Seeking wisdom from the Bhagavad Gita\u2026"):
+        with st.spinner("🕉️ Seeking wisdom from the Bhagavad Gita…"):
             st.session_state.result = get_gita_guidance(user_input)
         st.session_state.voice_audio = {}
         st.session_state.chat_history.append({
@@ -783,9 +682,7 @@ if seek:
         st.session_state.preset = ""
 
 
-# ──────────────────────────────────────────────────────────────────────────────
-# RESULTS
-# ──────────────────────────────────────────────────────────────────────────────
+# ── RESULTS ──
 if st.session_state.result:
     result = st.session_state.result
     turn_idx = len(st.session_state.chat_history) - 1
@@ -803,11 +700,9 @@ if st.session_state.result:
         meaning = clean_meaning(s.get("meaning", ""))
         st.markdown(f"""
         <div class='shloka-box'>
-          <div style='display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;'>
-            <div>
-              <span style='font-family:Playfair Display,serif;font-size:1.1rem;color:#ffd700;font-weight:700;'>🕉️ Chapter {s['chapter']}, Verse {s['verse']}</span>
-              <span style='color:#4a3020;font-size:12px;margin-left:10px;'>{chapter_name}</span>
-            </div>
+          <div style='margin-bottom:16px;'>
+            <span style='font-family:Playfair Display,serif;font-size:1.1rem;color:#ffd700;font-weight:700;'>🕉️ Chapter {s['chapter']}, Verse {s['verse']}</span>
+            <span style='color:#4a3020;font-size:12px;margin-left:10px;'>{chapter_name}</span>
           </div>
           <p style='color:#e8a060;font-size:19px;font-family:Playfair Display,serif;line-height:1.9;margin:0 0 16px 0;'>{s['sanskrit']}</p>
           <hr style='border:none;border-top:1px solid rgba(255,140,0,0.15);margin:0 0 16px 0;'/>
@@ -817,12 +712,12 @@ if st.session_state.result:
 
         vkey = f"s_{s['chapter']}_{s['verse']}"
         if vkey not in st.session_state.voice_audio:
-            with st.spinner(f"🕉️ Loading recitation for Ch {s['chapter']}, Verse {s['verse']}\u2026"):
+            with st.spinner(f"🕉️ Loading recitation for Ch {s['chapter']}, Verse {s['verse']}…"):
                 audio = get_shloka_audio(s)
             if audio:
                 st.session_state.voice_audio[vkey] = audio
         if vkey in st.session_state.voice_audio:
-            st.markdown(f"<p style='color:#6a5030;font-size:12px;margin:8px 0 2px 0;letter-spacing:0.05em;'>🔉 VERSE RECITATION — Ch {s['chapter']}.{s['verse']}</p>", unsafe_allow_html=True)
+            st.markdown(f"<p style='color:#6a5030;font-size:12px;margin:8px 0 2px 0;'>🔉 Verse Recitation — Ch {s['chapter']}.{s['verse']}</p>", unsafe_allow_html=True)
             st.audio(st.session_state.voice_audio[vkey], format="audio/mp3")
         else:
             st.caption("⚠️ Audio unavailable for this verse.")
@@ -830,7 +725,7 @@ if st.session_state.result:
     st.markdown("""
     <div style='text-align:center;padding:40px 0 20px 0;'>
       <p style='font-size:11px;letter-spacing:0.2em;text-transform:uppercase;color:#6a5030;margin-bottom:10px;'>personal guidance</p>
-      <h2 style='font-family:Playfair Display,serif;font-size:2rem;color:#f5e6cc;margin:0;'>Krishna\u2019s Message for You</h2>
+      <h2 style='font-family:Playfair Display,serif;font-size:2rem;color:#f5e6cc;margin:0;'>Krishna’s Message for You</h2>
     </div>
     """, unsafe_allow_html=True)
 
@@ -843,13 +738,13 @@ if st.session_state.result:
     </div>
     """, unsafe_allow_html=True)
 
-    if st.button("🔊 Hear Krishna\u2019s Voice", key="btn_guidance"):
+    if st.button("🔊 Hear Krishna’s Voice", key="btn_guidance"):
         full_script = (
             f"O Arjuna. {guidance_text} "
             "This is the eternal truth. Go forward with courage. "
             "Surrender to the divine will. Tat Tvam Asi."
         )
-        with st.spinner("🕉️ Generating voice\u2026"):
+        with st.spinner("🕉️ Generating voice…"):
             audio = make_guidance_voice(full_script)
         if audio:
             st.session_state.voice_audio["guidance"] = audio
@@ -877,9 +772,7 @@ if st.session_state.result:
     st.markdown("</div>", unsafe_allow_html=True)
 
 
-# ──────────────────────────────────────────────────────────────────────────────
-# CONVERSATION HISTORY
-# ──────────────────────────────────────────────────────────────────────────────
+# ── HISTORY ──
 if st.session_state.chat_history:
     st.markdown("""
     <div style='padding:50px 4vw 20px 4vw;border-top:1px solid #1e0d00;'>
@@ -890,14 +783,14 @@ if st.session_state.chat_history:
     for idx, entry in enumerate(st.session_state.chat_history):
         fb = entry.get("feedback")
         fb_icon = " 👍" if fb == 1 else (" 👎" if fb == -1 else "")
-        with st.expander(f"Turn {idx+1}{fb_icon}  —  \"{entry['input'][:55]}\u2026\"  ({entry['ts']})", expanded=False):
+        with st.expander(f"Turn {idx+1}{fb_icon}  —  \"{entry['input'][:55]}…\"  ({entry['ts']})", expanded=False):
             st.markdown(f"**You asked:** {entry['input']}")
             for s in entry["shlokas"]:
                 chapter_name = CHAPTER_NAMES.get(s["chapter"], "")
                 meaning = clean_meaning(s.get("meaning", ""))
                 st.markdown(f"""
                 <div class='shloka-box' style='padding:16px;'>
-                  <b style='color:#ffd700;font-family:Playfair Display,serif;'>🕉️ Ch {s['chapter']}, Verse {s['verse']}</b>
+                  <b style='color:#ffd700;'>🕉️ Ch {s['chapter']}, Verse {s['verse']}</b>
                   <span style='color:#4a3020;font-size:12px;'> — {chapter_name}</span><br>
                   <p style='color:#e8a060;font-size:15px;font-family:serif;line-height:1.9;margin:10px 0 6px 0;'>{s['sanskrit']}</p>
                   <hr style='border:none;border-top:1px solid rgba(255,140,0,0.1);'/>
@@ -911,9 +804,7 @@ if st.session_state.chat_history:
             """, unsafe_allow_html=True)
 
 
-# ──────────────────────────────────────────────────────────────────────────────
-# EXPORT
-# ──────────────────────────────────────────────────────────────────────────────
+# ── EXPORT ──
 if st.session_state.chat_history:
     st.markdown("<div style='padding:20px 4vw 40px 4vw;'>", unsafe_allow_html=True)
     st.markdown("""
@@ -945,9 +836,7 @@ if st.session_state.chat_history:
     st.markdown("</div>", unsafe_allow_html=True)
 
 
-# ──────────────────────────────────────────────────────────────────────────────
-# FOOTER
-# ──────────────────────────────────────────────────────────────────────────────
+# ── FOOTER ──
 st.markdown("""
 <div style='background:#080300;border-top:1px solid #1a0900;padding:40px 6vw;margin-top:40px;'>
   <div class='disclaimer-box'>

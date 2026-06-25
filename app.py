@@ -57,14 +57,14 @@ st.markdown("""
 CACHE_DIR = "/tmp/gita_audio"
 os.makedirs(CACHE_DIR, exist_ok=True)
 
-# ElevenLabs voice candidates in order of preference (deep, calm, wise male voices)
-# George: JBFqnCBsd6RMkjVDRZzb  — deep authoritative British male, very guru-like
-# Liam:   TX3LPaxmHKxFdv7VOQHJ  — calm warm male
-# Brian:  nPczCjzI2devNBz1zQrb  — deep calm American male
+# Voice priority — deep, gravelly, resonant male (Chinmayananda-style)
+# Callum: N2lVS1w4EtoT3dr4eOWO  — deep gravelly intense, closest to Swami Chinmayananda
+# George: JBFqnCBsd6RMkjVDRZzb  — deep calm authoritative British
+# Daniel: onwK4e9ZLuTAKqWW03F9  — deep British male
 GURU_VOICES = [
-    "JBFqnCBsd6RMkjVDRZzb",  # George — first choice
-    "nPczCjzI2devNBz1zQrb",  # Brian
-    "TX3LPaxmHKxFdv7VOQHJ",  # Liam
+    "N2lVS1w4EtoT3dr4eOWO",  # Callum — first choice
+    "JBFqnCBsd6RMkjVDRZzb",  # George — fallback
+    "onwK4e9ZLuTAKqWW03F9",  # Daniel — second fallback
 ]
 
 
@@ -84,24 +84,28 @@ def clean_sanskrit(text: str) -> str:
     return text.strip()
 
 
-def build_guru_shloka_text(shloka: dict) -> str:
+def build_chinmayananda_script(shloka: dict) -> str:
     """
-    Build a guru-style spoken script for a shloka.
-    Structure:
-      - Short reverent intro in English
-      - Sanskrit Devanagari (read slowly by multilingual model)
-      - Brief pause marker, then the meaning in English
-    This makes it sound like a guru is presenting, chanting, then explaining.
+    Builds a Swami Chinmayananda-style spoken script.
+    Pattern:
+      - 'Shloka. Chapter X, Verse Y.'
+      - Sanskrit lines separated by '...' pauses
+      - 'The Lord says ...' then the meaning
+      - Closes with 'Contemplate on this.'
     """
-    ch = shloka['chapter']
-    v  = shloka['verse']
-    sanskrit = clean_sanskrit(shloka.get('sanskrit', ''))
-    meaning  = shloka.get('meaning', '')
+    ch      = shloka['chapter']
+    v       = shloka['verse']
+    meaning = shloka.get('meaning', '')
+
+    raw   = clean_sanskrit(shloka.get('sanskrit', ''))
+    lines = [l.strip() for l in raw.splitlines() if l.strip()]
+    sanskrit_with_pauses = ' ... '.join(lines)
 
     script = (
-        f"From Chapter {ch}, Verse {v} of the Bhagavad Gita... "
-        f"{sanskrit} ... "
-        f"{meaning}"
+        f"Shloka. Chapter {ch}, Verse {v}. "
+        f"{sanskrit_with_pauses} ... "
+        f"The Lord says ... {meaning} "
+        f"Contemplate on this."
     )
     return script
 
@@ -117,9 +121,9 @@ def get_elevenlabs_audio(text: str, voice_id: str) -> bytes | None:
             "text": text,
             "model_id": "eleven_multilingual_v2",
             "voice_settings": {
-                "stability": 0.90,        # very stable = steady guru tone
+                "stability": 0.85,
                 "similarity_boost": 0.80,
-                "style": 0.35,            # slight expressiveness for gravitas
+                "style": 0.40,        # expressiveness for gravitas
                 "use_speaker_boost": True
             }
         }
@@ -132,13 +136,6 @@ def get_elevenlabs_audio(text: str, voice_id: str) -> bytes | None:
 
 
 def get_shloka_audio(shloka: dict) -> bytes | None:
-    """
-    Get guru-style shloka audio.
-    Priority:
-      1. ElevenLabs George/Brian/Liam (deep calm guru voice, multilingual)
-      2. edge_tts en-IN-PrabhatNeural (Indian English male, slow) 
-      3. gTTS Hindi slow (always works fallback)
-    """
     ch = shloka["chapter"]
     v  = shloka["verse"]
     cache_file = os.path.join(CACHE_DIR, f"{ch}_{v}.mp3")
@@ -149,9 +146,9 @@ def get_shloka_audio(shloka: dict) -> bytes | None:
             return data
         os.remove(cache_file)
 
-    script = build_guru_shloka_text(shloka)
+    script = build_chinmayananda_script(shloka)
 
-    # 1. Try ElevenLabs with each guru voice
+    # 1. ElevenLabs — Callum / George / Daniel
     for vid in GURU_VOICES:
         audio = get_elevenlabs_audio(script, vid)
         if audio:
@@ -165,7 +162,7 @@ def get_shloka_audio(shloka: dict) -> bytes | None:
             tmp_path = tmp.name
         async def _gen_shloka():
             communicate = edge_tts.Communicate(
-                script, "en-IN-PrabhatNeural", rate="-25%", pitch="-8Hz"
+                script, "en-IN-PrabhatNeural", rate="-25%", pitch="-10Hz"
             )
             await communicate.save(tmp_path)
         asyncio.run(_gen_shloka())
@@ -179,7 +176,7 @@ def get_shloka_audio(shloka: dict) -> bytes | None:
     except Exception:
         pass
 
-    # 3. gTTS Hindi fallback
+    # 3. gTTS fallback
     try:
         sanskrit_text = clean_sanskrit(shloka.get("sanskrit", ""))
         tts = gTTS(text=sanskrit_text, lang="hi", slow=True)
@@ -198,18 +195,16 @@ def get_shloka_audio(shloka: dict) -> bytes | None:
 
 
 def make_guidance_voice(script: str) -> bytes | None:
-    # Try ElevenLabs George for guidance too — same guru voice
     for vid in GURU_VOICES:
         audio = get_elevenlabs_audio(script, vid)
         if audio:
             return audio
-    # Fallback: edge_tts Indian English male
     try:
         with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as tmp:
             tmp_path = tmp.name
         async def _gen():
             communicate = edge_tts.Communicate(
-                script, "en-IN-PrabhatNeural", rate="-20%", pitch="-6Hz"
+                script, "en-IN-PrabhatNeural", rate="-20%", pitch="-8Hz"
             )
             await communicate.save(tmp_path)
         asyncio.run(_gen())
@@ -338,7 +333,7 @@ if st.session_state.result:
 
         vkey = f"s_{s['chapter']}_{s['verse']}"
         if vkey not in st.session_state.voice_audio:
-            with st.spinner(f"🕉️ Loading chanting for Ch {s['chapter']}, Verse {s['verse']}..."):
+            with st.spinner(f"🕉️ Loading recitation for Ch {s['chapter']}, Verse {s['verse']}..."):
                 audio = get_shloka_audio(s)
             if audio:
                 st.session_state.voice_audio[vkey] = audio
@@ -365,9 +360,9 @@ if st.session_state.result:
 
     if st.button("🔊 Hear Krishna's Guidance", key="btn_guidance"):
         full_script = (
-            f"O Arjuna, hear these words of eternal wisdom. "
-            f"{guidance_text} "
-            f"Go forward with courage. Surrender to the divine will. Tat Tvam Asi."
+            f"O Arjuna. {guidance_text} "
+            f"This is the eternal truth. Go forward with courage. "
+            f"Surrender to the divine will. Tat Tvam Asi."
         )
         with st.spinner("🕉️ Generating voice..."):
             audio = make_guidance_voice(full_script)

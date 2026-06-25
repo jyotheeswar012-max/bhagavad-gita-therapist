@@ -8,28 +8,19 @@ Usage (run locally, NOT on Streamlit Cloud):
 This writes a fresh gita_data.py in the project root.
 Commit it and redeploy - no other code changes needed.
 
-API used: https://bhagavadgita.io/api  (free, no key required)
-Fallback: https://vedicscriptures.github.io/slok/<ch>/<v>/  (also free)
+APIs used (both free, no key required):
+    Primary fallback : https://vedicscriptures.github.io/slok/<ch>/<v>/
+    Optional better  : https://bhagavad-gita3.p.rapidapi.com/  (free RapidAPI key)
+        python fetch_gita_api.py --api-key YOUR_KEY
 
-Shloka schema produced (matches existing gita_data.py exactly):
-    {
-      "id":              int          e.g. 247  (chapter*100 + verse)
-      "chapter":         int          1-18
-      "verse":           int          1-N
-      "sanskrit":        str          Devanagari text
-      "transliteration": str          Roman transliteration
-      "meaning":         str          English translation
-      "themes":          list[str]    auto-generated from keywords
-    }
-
-Auto-theme generation:
-    Each verse meaning is scanned against a keyword -> theme map.
-    This gives reasonable theme coverage across all 700 verses;
-    you can refine manually for important verses.
+Why json.dumps() for string fields?
+    Sanskrit text contains Devanagari, pipe characters (।), newlines, and
+    backslashes that break hand-rolled string escaping.  json.dumps() is
+    specified to produce valid JSON string literals, which are also valid
+    Python string literals - making SyntaxError impossible.
 """
 
 import json
-import re
 import sys
 import time
 from pathlib import Path
@@ -41,7 +32,7 @@ except ImportError:
 
 
 # ---------------------------------------------------------------------------
-# Chapter metadata (unchanged from existing gita_data.py)
+# Chapter metadata
 # ---------------------------------------------------------------------------
 
 CHAPTER_NAMES = {
@@ -65,7 +56,6 @@ CHAPTER_NAMES = {
     18: "Moksha Yoga - Liberation Through Renunciation",
 }
 
-# Number of verses per chapter (standard count)
 CHAPTER_VERSE_COUNTS = {
     1: 47, 2: 72, 3: 43, 4: 42, 5: 29, 6: 47,
     7: 30, 8: 28, 9: 34, 10: 42, 11: 55, 12: 20,
@@ -74,184 +64,145 @@ CHAPTER_VERSE_COUNTS = {
 
 
 # ---------------------------------------------------------------------------
-# Keyword -> theme map for auto-tagging
+# Auto-theme generation
 # ---------------------------------------------------------------------------
 
-KEYWORD_THEMES: list[tuple[list[str], list[str]]] = [
+KEYWORD_THEMES = [
     (["anxious", "anxiety", "worry", "stress", "worried", "tension", "restless"],
      ["anxiety", "stress", "overthinking", "worry"]),
-
     (["grief", "sorrow", "mourn", "lament", "weep", "tears", "cry", "wept"],
      ["grief", "sadness", "loss", "heartbreak", "depression"]),
-
     (["fear", "afraid", "terrified", "dread", "fright", "scared"],
      ["fear", "courage", "fearlessness"]),
-
     (["anger", "wrath", "rage", "furious", "irritat"],
      ["anger", "ego", "self-control"]),
-
-    (["desire", "lust", "greed", "crav", "tempt", "want"],
+    (["desire", "lust", "greed", "crav", "tempt"],
      ["desire", "attachment", "greed", "addiction"]),
-
     (["duty", "dharma", "righteous", "obligat", "prescribed"],
      ["duty", "purpose", "karma"]),
-
-    (["action", "karma", "perform", "deed", "work", "act "],
+    (["action", "karma", "perform", "deed", "work"],
      ["work", "action", "karma", "productivity"]),
-
     (["result", "fruit", "outcome", "reward", "attach"],
      ["attachment", "results", "detachment"]),
-
     (["knowledge", "wisdom", "learn", "understand", "intellect"],
      ["knowledge", "wisdom", "learning", "education"]),
-
-    (["soul", "atman", "spirit", "eternal", "immortal", "self"],
+    (["soul", "atman", "spirit", "eternal", "immortal"],
      ["soul", "spiritual", "eternal", "identity"]),
-
     (["death", "die", "mortal", "slain", "perish", "kill"],
      ["death", "impermanence", "existential"]),
-
     (["peace", "tranquil", "calm", "serenity", "equanim"],
      ["peace", "inner peace", "calm", "equanimity"]),
-
     (["faith", "devot", "worship", "prayer", "bhakti"],
      ["faith", "devotion", "god", "spiritual"]),
-
     (["surrender", "refuge", "seek me", "come to me"],
      ["surrender", "trust", "hope", "faith"]),
-
     (["mind", "thought", "mental", "contemplate", "meditat"],
      ["focus", "meditation", "mind control", "distraction"]),
-
     (["ego", "pride", "arrogance", "vanity", "conceit"],
      ["ego", "pride", "humility"]),
-
     (["compassion", "kind", "friend", "love", "care"],
      ["compassion", "relationships", "kindness"]),
-
     (["forgiv", "sin", "guilt", "mistake", "repent"],
      ["forgiveness", "guilt", "past mistakes", "regret"]),
-
     (["liberation", "freedom", "moksha", "release", "transcend"],
      ["liberation", "freedom", "moksha", "spiritual liberation"]),
-
     (["purpose", "meaning", "direct", "lost", "confus"],
      ["purpose", "meaning of life", "direction", "lost"]),
-
     (["lazy", "inaction", "sloth", "idle", "procrastinat"],
      ["laziness", "procrastination", "motivation", "discipline"]),
-
-    (["comparison", "jealous", "envy", "others"],
+    (["comparison", "jealous", "envy"],
      ["jealousy", "comparison", "self-doubt"]),
-
     (["health", "body", "sleep", "food", "diet", "eat"],
      ["health", "self-care", "wellness", "burnout"]),
-
     (["change", "impermanent", "temporary", "transient"],
      ["impermanence", "change", "acceptance"]),
-
     (["lonely", "alone", "isolat", "abandon"],
      ["loneliness", "lonely", "support"]),
-
-    (["confidence", "self-doubt", "doubt yourself", "courage", "weak"],
+    (["confidence", "self-doubt", "weak", "courage"],
      ["self-doubt", "low confidence", "motivation", "courage"]),
-
     (["balance", "moderat", "regul", "discipline"],
      ["balance", "discipline", "self-control"]),
 ]
 
 
-def auto_themes(meaning: str) -> list[str]:
-    """Generate theme tags from the English meaning of a verse."""
-    m_lower = meaning.lower()
-    themes: list[str] = []
+def auto_themes(meaning: str) -> list:
+    m = meaning.lower()
+    themes = []
     for keywords, tags in KEYWORD_THEMES:
-        if any(kw in m_lower for kw in keywords):
+        if any(kw in m for kw in keywords):
             themes.extend(t for t in tags if t not in themes)
-    return themes or ["spiritual", "wisdom"]  # always at least one tag
+    return themes or ["spiritual", "wisdom"]
 
 
 # ---------------------------------------------------------------------------
-# API fetchers  (two sources, tried in order)
+# API fetchers
 # ---------------------------------------------------------------------------
 
-API_A = "https://bhagavadgita.io/api/v1"      # bhagavadgita.io  (needs RapidAPI key optionally)
-API_B = "https://vedicscriptures.github.io"    # vedicscriptures (no key needed)
-
-
-def _fetch_verse_vedic(chapter: int, verse: int) -> dict | None:
-    """
-    Fetch a single verse from vedicscriptures.github.io.
-    Returns a normalised dict or None on failure.
-    """
-    url = f"{API_B}/slok/{chapter}/{verse}/"
+def _fetch_vedic(chapter: int, verse: int) -> dict | None:
+    """Free, no key: vedicscriptures.github.io"""
     try:
-        r = requests.get(url, timeout=10)
+        r = requests.get(
+            f"https://vedicscriptures.github.io/slok/{chapter}/{verse}/",
+            timeout=10,
+        )
         if r.status_code != 200:
             return None
         data = r.json()
-        # API response fields
-        sanskrit = data.get("slok", "").strip()
-        roman    = ""
-        english  = ""
-        # Try multiple translators in order of preference
-        for author in ["chinmay", "siva", "purohit", "gambirananda", "sankaracharya",
-                       "tej", "ms", "rk", "abhinav", "adi"]:
-            entry = data.get(author, {})
-            if not entry:
-                continue
-            if not roman and entry.get("et"):
-                roman = entry["et"].strip()
-            if not english and entry.get("ec"):
-                english = entry["ec"].strip()
-            if roman and english:
-                break
+        sanskrit = (data.get("slok") or "").strip()
         if not sanskrit:
             return None
+        roman, english = "", ""
+        for author in ["chinmay", "siva", "purohit", "gambirananda",
+                       "sankaracharya", "tej", "ms", "rk", "abhinav", "adi"]:
+            entry = data.get(author) or {}
+            if not roman   and entry.get("et"): roman   = entry["et"].strip()
+            if not english and entry.get("ec"): english = entry["ec"].strip()
+            if roman and english:
+                break
         return {
             "id":              chapter * 100 + verse,
             "chapter":         chapter,
             "verse":           verse,
             "sanskrit":        sanskrit,
-            "transliteration": roman or f"Chapter {chapter}, Verse {verse}",
-            "meaning":         english or "See Bhagavad Gita for translation.",
+            "transliteration": roman    or f"Chapter {chapter}, Verse {verse}",
+            "meaning":         english  or "Refer to Bhagavad Gita for translation.",
             "themes":          auto_themes(english),
         }
     except Exception as e:
-        print(f"    [warn] vedicscriptures {chapter}:{verse} -> {e}")
+        print(f"    [warn] vedic {chapter}:{verse} -> {e}")
         return None
 
 
-def _fetch_verse_rapidapi(chapter: int, verse: int, api_key: str) -> dict | None:
-    """
-    Fetch a single verse from bhagavad-gita.p.rapidapi.com (requires free RapidAPI key).
-    """
-    url = f"https://bhagavad-gita3.p.rapidapi.com/v2/chapters/{chapter}/verses/{verse}/"
-    headers = {
-        "X-RapidAPI-Key":  api_key,
-        "X-RapidAPI-Host": "bhagavad-gita3.p.rapidapi.com",
-    }
+def _fetch_rapidapi(chapter: int, verse: int, api_key: str) -> dict | None:
+    """Optional: bhagavad-gita3.p.rapidapi.com (free RapidAPI key)"""
     try:
-        r = requests.get(url, headers=headers, timeout=10)
+        r = requests.get(
+            f"https://bhagavad-gita3.p.rapidapi.com/v2/chapters/{chapter}/verses/{verse}/",
+            headers={
+                "X-RapidAPI-Key":  api_key,
+                "X-RapidAPI-Host": "bhagavad-gita3.p.rapidapi.com",
+            },
+            timeout=10,
+        )
         if r.status_code != 200:
             return None
         data = r.json()
-        sanskrit = data.get("text", "").strip()
-        roman    = data.get("transliteration", "").strip()
-        english  = ""
-        for t in data.get("translations", []):
-            if t.get("language") == "english":
-                english = t.get("description", "").strip()
-                break
+        sanskrit = (data.get("text") or "").strip()
         if not sanskrit:
             return None
+        roman   = (data.get("transliteration") or "").strip()
+        english = ""
+        for t in data.get("translations") or []:
+            if t.get("language") == "english":
+                english = (t.get("description") or "").strip()
+                break
         return {
             "id":              chapter * 100 + verse,
             "chapter":         chapter,
             "verse":           verse,
             "sanskrit":        sanskrit,
-            "transliteration": roman or f"Chapter {chapter}, Verse {verse}",
-            "meaning":         english or "See Bhagavad Gita for translation.",
+            "transliteration": roman    or f"Chapter {chapter}, Verse {verse}",
+            "meaning":         english  or "Refer to Bhagavad Gita for translation.",
             "themes":          auto_themes(english),
         }
     except Exception as e:
@@ -260,79 +211,64 @@ def _fetch_verse_rapidapi(chapter: int, verse: int, api_key: str) -> dict | None
 
 
 # ---------------------------------------------------------------------------
-# Writer
+# Writer — json.dumps() for every string/list: SyntaxError is impossible
 # ---------------------------------------------------------------------------
 
-SHLOKA_REPR_TEMPLATE = '''\
-    {{"id": {id}, "chapter": {chapter}, "verse": {verse},
-     "sanskrit": {sanskrit},
-     "transliteration": {transliteration},
-     "meaning": {meaning},
-     "themes": {themes}}},
-'''
+def write_gita_data(shlokas: list, out_path: Path) -> None:
+    """
+    Serialise shlokas into a valid Python source file.
 
-
-def _repr(val) -> str:
-    """Python repr that uses double-quoted strings."""
-    if isinstance(val, str):
-        # Escape backslashes and double quotes, then wrap
-        escaped = val.replace("\\", "\\\\").replace('"', '\\"')
-        return f'"{escaped}"'
-    if isinstance(val, list):
-        inner = ", ".join(f'"{v}"' for v in val)
-        return f"[{inner}]"
-    return repr(val)
-
-
-def write_gita_data(shlokas: list[dict], out_path: Path) -> None:
+    Every string/list value is serialised with json.dumps() which:
+      - Escapes backslashes, double-quotes, newlines, tabs correctly
+      - Preserves Devanagari and all Unicode (ensure_ascii=False)
+      - Produces output that is simultaneously valid JSON and valid Python
+    This makes it impossible to generate a SyntaxError regardless of the
+    content returned by the API.
+    """
     lines = [
         "# gita_data.py  -  Auto-generated by fetch_gita_api.py",
         f"# Total shlokas: {len(shlokas)} across 18 chapters",
-        "# Schema: id, chapter, verse, sanskrit, transliteration, meaning, themes",
         "",
         "SHLOKAS = [",
     ]
+
     current_chapter = None
     for s in shlokas:
         if s["chapter"] != current_chapter:
             current_chapter = s["chapter"]
-            lines.append(f"")
-            lines.append(f"    # -- Chapter {current_chapter}: {CHAPTER_NAMES.get(current_chapter, '')} --")
-        lines.append(
-            SHLOKA_REPR_TEMPLATE.format(
-                id             = s["id"],
-                chapter        = s["chapter"],
-                verse          = s["verse"],
-                sanskrit       = _repr(s["sanskrit"]),
-                transliteration= _repr(s["transliteration"]),
-                meaning        = _repr(s["meaning"]),
-                themes         = _repr(s["themes"]),
-            ).rstrip()
-        )
-    lines.append("]")
-    lines.append("")
+            lines.append("")
+            lines.append(
+                f"    # -- Chapter {current_chapter}: "
+                f"{CHAPTER_NAMES.get(current_chapter, '')} --"
+            )
 
-    # Paste the lookup maps / utility section verbatim (same as original)
+        # json.dumps handles ALL edge cases safely
+        sk = json.dumps(s["sanskrit"],        ensure_ascii=False)
+        tr = json.dumps(s["transliteration"], ensure_ascii=False)
+        me = json.dumps(s["meaning"],         ensure_ascii=False)
+        th = json.dumps(s["themes"],          ensure_ascii=False)
+
+        lines.append(
+            f'    {{"id": {s["id"]}, "chapter": {s["chapter"]}, "verse": {s["verse"]},'
+        )
+        lines.append(f'     "sanskrit": {sk},')
+        lines.append(f'     "transliteration": {tr},')
+        lines.append(f'     "meaning": {me},')
+        lines.append(f'     "themes": {th}}},')
+
     lines += [
+        "]",
+        "",
         "",
         "# -- Lookup Maps --",
         "",
-        "THEME_MAP = {",
-        "    theme: shloka",
-        "    for shloka in SHLOKAS",
-        "    for theme in shloka[\"themes\"]",
-        "}",
-        "",
-        "VERSE_MAP = {",
-        "    (s[\"chapter\"], s[\"verse\"]): s",
-        "    for s in SHLOKAS",
-        "}",
-        "",
+        'THEME_MAP = {theme: s for s in SHLOKAS for theme in s["themes"]}',
+        'VERSE_MAP = {(s["chapter"], s["verse"]): s for s in SHLOKAS}',
         "CHAPTER_MAP = {}",
         "for s in SHLOKAS:",
-        "    CHAPTER_MAP.setdefault(s[\"chapter\"], []).append(s)",
+        '    CHAPTER_MAP.setdefault(s["chapter"], []).append(s)',
         "",
-        "CHAPTER_NAMES = " + repr(CHAPTER_NAMES),
+        f"CHAPTER_NAMES = {repr(CHAPTER_NAMES)}",
         "",
         "",
         "def get_shloka(chapter: int, verse: int):",
@@ -343,12 +279,23 @@ def write_gita_data(shlokas: list[dict], out_path: Path) -> None:
         "",
         "def search_by_theme(keyword: str):",
         "    keyword = keyword.lower().strip()",
-        "    return [s for s in SHLOKAS if any(keyword in t.lower() for t in s[\"themes\"])]",
+        '    return [s for s in SHLOKAS if any(keyword in t.lower() for t in s["themes"])]',
         "",
     ]
 
     out_path.write_text("\n".join(lines), encoding="utf-8")
     print(f"\n[ok] Written {len(shlokas)} shlokas to {out_path}")
+
+    # Self-verify: import the file and confirm it loads cleanly
+    try:
+        import importlib.util
+        spec = importlib.util.spec_from_file_location("_gita_check", out_path)
+        mod  = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        print(f"[verified] {len(mod.SHLOKAS)} shlokas imported without errors.")
+    except SyntaxError as e:
+        print(f"[ERROR] SyntaxError in generated file at line {e.lineno}: {e.msg}")
+        print("This should never happen with json.dumps writer — please report.")
 
 
 # ---------------------------------------------------------------------------
@@ -357,59 +304,52 @@ def write_gita_data(shlokas: list[dict], out_path: Path) -> None:
 
 def main():
     import argparse
-    parser = argparse.ArgumentParser(description="Fetch all Gita shlokas and write gita_data.py")
-    parser.add_argument(
-        "--api-key", default="",
-        help="RapidAPI key for bhagavad-gita3.p.rapidapi.com (optional; falls back to vedicscriptures)",
+    parser = argparse.ArgumentParser(
+        description="Fetch all Bhagavad Gita shlokas and write gita_data.py"
     )
-    parser.add_argument(
-        "--out", default="gita_data.py",
-        help="Output file path (default: gita_data.py)",
-    )
-    parser.add_argument(
-        "--delay", type=float, default=0.25,
-        help="Seconds to sleep between API calls to avoid rate-limiting (default: 0.25)",
-    )
+    parser.add_argument("--api-key", default="",
+                        help="Optional RapidAPI key for better translations")
+    parser.add_argument("--out",     default="gita_data.py",
+                        help="Output file (default: gita_data.py)")
+    parser.add_argument("--delay",   type=float, default=0.25,
+                        help="Seconds between API calls (default: 0.25)")
     args = parser.parse_args()
 
-    out_path  = Path(args.out)
-    api_key   = args.api_key.strip()
-    shlokas: list[dict] = []
-    failures: list[tuple] = []
-
-    total = sum(CHAPTER_VERSE_COUNTS.values())
+    out_path = Path(args.out)
+    api_key  = args.api_key.strip()
+    shlokas, failures = [], []
+    total   = sum(CHAPTER_VERSE_COUNTS.values())
     fetched = 0
 
     for ch, verse_count in CHAPTER_VERSE_COUNTS.items():
-        print(f"Chapter {ch:2d} ({CHAPTER_NAMES[ch].split(' - ')[0]})  -  {verse_count} verses")
+        print(f"\nChapter {ch:2d}: {CHAPTER_NAMES[ch].split(' - ')[0]}  ({verse_count} verses)")
         for v in range(1, verse_count + 1):
             shloka = None
-            # Try RapidAPI first if key provided
             if api_key:
-                shloka = _fetch_verse_rapidapi(ch, v, api_key)
-            # Fallback to vedicscriptures
+                shloka = _fetch_rapidapi(ch, v, api_key)
             if not shloka:
-                shloka = _fetch_verse_vedic(ch, v)
+                shloka = _fetch_vedic(ch, v)
             if shloka:
                 shlokas.append(shloka)
                 fetched += 1
-                print(f"  [{fetched:3d}/{total}] Ch {ch}:{v}  ok", end="\r")
+                print(f"  [{fetched:3d}/{total}] Ch{ch}:{v} ok", end="\r")
             else:
                 failures.append((ch, v))
-                print(f"  [FAIL] Ch {ch}:{v}")
+                print(f"  [FAIL] Ch{ch}:{v}")
             time.sleep(args.delay)
-        print()  # newline after chapter
 
-    print(f"\nFetched: {fetched}/{total}  |  Failed: {len(failures)}")
+    print(f"\n\nFetched: {fetched}/{total}  |  Failed: {len(failures)}")
     if failures:
         print("Failed verses:", failures)
-
     if not shlokas:
         sys.exit("[error] No shlokas fetched. Check your internet connection.")
 
     write_gita_data(shlokas, out_path)
-    print("\nDone! Commit gita_data.py and redeploy your Streamlit app.")
-    print("No other code changes required.")
+
+    print("\nNext steps:")
+    print("  git add gita_data.py")
+    print('  git commit -m "data: full 700-shloka Bhagavad Gita"')
+    print("  git push")
 
 
 if __name__ == "__main__":

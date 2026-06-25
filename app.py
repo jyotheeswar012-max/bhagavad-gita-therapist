@@ -35,6 +35,22 @@ st.markdown("""
         padding: 22px;
         margin: 12px 0;
     }
+    .disclaimer-box {
+        background: linear-gradient(135deg, #1a0a00, #2a1500);
+        border: 1px solid #ff6b35;
+        border-left: 4px solid #ff6b35;
+        border-radius: 10px;
+        padding: 16px 20px;
+        margin: 10px 0 18px 0;
+    }
+    .privacy-box {
+        background: linear-gradient(135deg, #001a0a, #00290f);
+        border: 1px solid #2ecc71;
+        border-left: 4px solid #2ecc71;
+        border-radius: 10px;
+        padding: 14px 20px;
+        margin: 10px 0;
+    }
     h1, h2, h3 { color: #ffd700 !important; }
     p { color: #f0e6d3; }
     .stTextArea textarea {
@@ -100,10 +116,8 @@ def make_placeholder(label: str) -> Image.Image:
     w, h = 800, 300
     img  = Image.new("RGB", (w, h), (30, 12, 0))
     draw = ImageDraw.Draw(img)
-    # Decorative border
     for i, col in enumerate([(255,140,0),(200,100,0),(255,200,0)]):
         draw.rectangle([i*2, i*2, w-1-i*2, h-1-i*2], outline=col, width=1)
-    # Om symbol area
     draw.ellipse([w//2-60, h//2-55, w//2+60, h//2+55], outline=(255,215,0), width=2)
     try:
         font_big = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 32)
@@ -111,10 +125,8 @@ def make_placeholder(label: str) -> Image.Image:
     except Exception:
         font_big = ImageFont.load_default()
         font_sm  = font_big
-    # Om text
     om = "🕉️"
     draw.text((w//2 - 20, h//2 - 20), om, fill=(255, 215, 0), font=font_big)
-    # Label below
     bbox = draw.textbbox((0,0), label, font=font_sm)
     tw = bbox[2] - bbox[0]
     draw.text(((w - tw)//2, h - 50), label, fill=(255, 200, 100), font=font_sm)
@@ -130,14 +142,12 @@ def load_images() -> dict:
         "Accept":     "image/webp,image/apng,image/*,*/*;q=0.8",
     }
     for name, cfg in IMAGE_SETS.items():
-        # 1. Try local file
         if os.path.exists(cfg["local"]):
             try:
                 imgs[name] = Image.open(cfg["local"]).convert("RGB")
                 continue
             except Exception:
                 pass
-        # 2. Try each URL
         for url in cfg["urls"]:
             try:
                 r = requests.get(url, headers=headers, timeout=8)
@@ -146,7 +156,6 @@ def load_images() -> dict:
                     break
             except Exception:
                 continue
-        # 3. PIL placeholder fallback
         if name not in imgs:
             imgs[name] = make_placeholder(cfg["label"])
     return imgs
@@ -159,11 +168,10 @@ def show_image(key: str, caption: str = ""):
     st.image(IMGS[key], caption=caption, use_container_width=True)
 
 
-# Voice priority — deep, gravelly, resonant male (Chinmayananda-style)
 GURU_VOICES = [
-    "N2lVS1w4EtoT3dr4eOWO",  # Callum
-    "JBFqnCBsd6RMkjVDRZzb",  # George
-    "onwK4e9ZLuTAKqWW03F9",  # Daniel
+    "N2lVS1w4EtoT3dr4eOWO",
+    "JBFqnCBsd6RMkjVDRZzb",
+    "onwK4e9ZLuTAKqWW03F9",
 ]
 
 
@@ -276,12 +284,12 @@ def make_guidance_voice(script: str) -> bytes | None:
         return None
 
 
-for key in ["preset", "result", "voice_audio"]:
+for key in ["preset", "result", "voice_audio", "disclaimer_accepted"]:
     if key not in st.session_state:
-        st.session_state[key] = "" if key == "preset" else (None if key == "result" else {})
+        st.session_state[key] = "" if key == "preset" else (None if key == "result" else ({} if key == "voice_audio" else False))
 
 
-# ── SIDEBAR ────────────────────────────────────────────────────────────────────
+# ── SIDEBAR ─────────────────────────────────────────────────────────────────
 with st.sidebar:
     show_image("krishna_flute", "🪈 Lord Krishna")
     st.markdown("## 🎶 Background Music")
@@ -317,11 +325,49 @@ with st.sidebar:
                 st.markdown(f"**Meaning:** {s['meaning']}")
     st.markdown("---")
     st.markdown(f"**Total Shlokas:** {len(SHLOKAS)} across 18 chapters  \n**Themes:** 100+")
+    st.markdown("---")
+    st.markdown("""
+    <div style='font-size:11px; color:#888; line-height:1.6;'>
+    🔒 <b style='color:#aaa;'>Privacy:</b> Your inputs are sent to Groq AI for inference only.
+    Nothing is stored by this app. No personal data is collected.
+    <br><br>
+    ℹ️ <a href='https://groq.com/privacy-policy/' target='_blank' style='color:#4a9eff;'>Groq Privacy Policy</a>
+    </div>
+    """, unsafe_allow_html=True)
 
 
-# ── MAIN ────────────────────────────────────────────────────────────────────
+# ── MAIN ──────────────────────────────────────────────────────────────────
 st.markdown("<h1 style='text-align:center; font-size:2.5rem;'>🕉️ Bhagavad Gita AI Therapist</h1>", unsafe_allow_html=True)
 st.markdown("<p style='text-align:center; color:#ffd700; font-size:17px;'>Share your struggles. Receive ancient wisdom. Find modern clarity.</p>", unsafe_allow_html=True)
+
+# ── MENTAL HEALTH DISCLAIMER BANNER ────────────────────────────────────────
+st.markdown("""
+<div class='disclaimer-box'>
+    <p style='color:#ffaa80; font-size:13px; margin:0; line-height:1.7;'>
+    ⚠️ <b style='color:#ff6b35;'>Important Disclaimer:</b>
+    This app offers <b>spiritual reflection and emotional support</b> inspired by the Bhagavad Gita.
+    It is <b>not a substitute</b> for professional psychological, psychiatric, or medical advice.
+    If you are in crisis or experiencing thoughts of self-harm, please contact a mental health professional immediately.
+    <br>
+    🇮🇳 <b>iCall (India):</b> 9152987821 &nbsp;|
+    🇮🇳 <b>Vandrevala Foundation:</b> 1860-2662-345 (24/7) &nbsp;|
+    🇺🇸 <b>988 Lifeline (USA):</b> Call/text 988
+    </p>
+</div>
+""", unsafe_allow_html=True)
+
+# ── PRIVACY NOTICE ────────────────────────────────────────────────────────────
+st.markdown("""
+<div class='privacy-box'>
+    <p style='color:#a8e6c1; font-size:12px; margin:0; line-height:1.6;'>
+    🔒 <b style='color:#2ecc71;'>Privacy Notice:</b>
+    Your inputs are sent to <a href='https://groq.com/privacy-policy/' target='_blank' style='color:#4a9eff;'>Groq AI</a> for inference only.
+    <b>No data is stored</b> by this app. No personal information is collected. Session data is cleared when you close the tab.
+    Avoid sharing sensitive personal details — keep inputs general (e.g. “I feel anxious”).
+    </p>
+</div>
+""", unsafe_allow_html=True)
+
 show_image("krishna_arjuna", "Krishna imparting wisdom to Arjuna on the battlefield of Kurukshetra")
 st.markdown("---")
 
@@ -443,4 +489,10 @@ if st.session_state.result:
     st.markdown("<p style='text-align:center; color:#ffd700; font-size:16px;'>✨ <i>Tat Tvam Asi — Thou Art That</i> ✨</p>", unsafe_allow_html=True)
 
 st.markdown("---")
-st.markdown("<p style='text-align:center; color:#555; font-size:12px;'>Built with ❤️ using Streamlit & Groq AI · Inspired by the eternal wisdom of the Bhagavad Gita</p>", unsafe_allow_html=True)
+st.markdown("""
+<div style='text-align:center; color:#555; font-size:12px; line-height:1.8;'>
+    Built with ❤️ using Streamlit &amp; Groq AI · Inspired by the eternal wisdom of the Bhagavad Gita<br>
+    ⚠️ <i>Not a substitute for professional mental health advice.</i>
+    <a href='https://groq.com/privacy-policy/' target='_blank' style='color:#4a9eff;'>Privacy Policy</a>
+</div>
+""", unsafe_allow_html=True)

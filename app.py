@@ -104,9 +104,7 @@ st.markdown("""
         h1 { font-size: 1.6rem !important; }
         .shloka-box, .guidance-box, .history-card { padding: 14px 12px; }
         .stButton > button { font-size: 13px !important; }
-        /* Stack 4-col emotion grid to 2-col on small screens */
         div[data-testid="column"] { min-width: 48% !important; }
-        /* Metric tiles: smaller font */
         div[data-testid="stMetric"] label { font-size: 11px !important; }
     }
     @media (max-width: 400px) {
@@ -233,20 +231,13 @@ def is_valid_mp3(data: bytes) -> bool:
     return False
 
 
-def clean_sanskrit(text: str) -> str:
-    text = re.sub(r"[|\u0964\u0965]+\s*\d*\s*[|\u0964\u0965]*", " ", text)
-    return text.strip()
-
-
-def build_chinmayananda_script(shloka: dict) -> str:
-    ch = shloka["chapter"]
-    v  = shloka["verse"]
+def build_voice_script(shloka: dict) -> str:
+    """English-only TTS script — no Sanskrit."""
+    ch      = shloka["chapter"]
+    v       = shloka["verse"]
     meaning = shloka.get("meaning", "")
-    raw  = clean_sanskrit(shloka.get("sanskrit", ""))
-    lines = [l.strip() for l in raw.splitlines() if l.strip()]
     return (
         f"Shloka. Chapter {ch}, Verse {v}. "
-        f"{' ... '.join(lines)} ... "
         f"The Lord says ... {meaning} "
         f"Contemplate on this."
     )
@@ -281,7 +272,7 @@ def get_shloka_audio(shloka: dict) -> bytes | None:
         if is_valid_mp3(data):
             return data
         os.remove(cache_file)
-    script = build_chinmayananda_script(shloka)
+    script = build_voice_script(shloka)
     for vid in GURU_VOICES:
         audio = get_elevenlabs_audio(script, vid)
         if audio:
@@ -306,7 +297,8 @@ def get_shloka_audio(shloka: dict) -> bytes | None:
     except Exception:
         pass
     try:
-        tts = gTTS(text=clean_sanskrit(shloka.get("sanskrit", "")), lang="hi", slow=True)
+        # gTTS fallback: read English meaning aloud
+        tts = gTTS(text=shloka.get("meaning", ""), lang="en", slow=False)
         buf = io.BytesIO()
         tts.write_to_fp(buf)
         buf.seek(0)
@@ -386,9 +378,9 @@ with st.sidebar:
         st.markdown(f"*{len(chapter_shlokas)} shlokas loaded*")
         for s in chapter_shlokas:
             with st.expander(f"Verse {s['verse']}"):
-                st.markdown(f"**Sanskrit:** {s['sanskrit']}")
-                st.markdown(f"*{s['transliteration']}*")
-                st.markdown(f"**Meaning:** {s['meaning']}")
+                # ── English meaning only ──
+                st.markdown(f"**Ch {s['chapter']}, Verse {s['verse']}**")
+                st.markdown(s["meaning"])
 
     st.markdown("---")
     st.markdown(f"**Total Shlokas:** {len(SHLOKAS)} across 18 chapters  \n**Themes:** 100+")
@@ -437,7 +429,7 @@ with col_b:
     show_image("gita_teaching", "🕉️ Krishna's Divine Teaching")
 st.markdown("---")
 
-# ── Chat history display (most recent at bottom) ────────────────────────────
+# ── Chat history display ────────────────────────────────────────────────────
 if st.session_state.chat_history:
     st.markdown("### 💬 Conversation History")
     for idx, entry in enumerate(st.session_state.chat_history):
@@ -447,13 +439,12 @@ if st.session_state.chat_history:
             st.markdown(f"**You asked:** {entry['input']}")
             for s in entry["shlokas"]:
                 chapter_name = CHAPTER_NAMES.get(s["chapter"], "")
+                # ── English meaning only ──
                 st.markdown(f"""
                 <div class='shloka-box' style='padding:14px;'>
                     <b style='color:#ffd700;'>🕉️ Ch {s['chapter']}, Verse {s['verse']}</b>
-                    <span style='color:#888; font-size:12px;'> — {chapter_name}</span><br>
-                    <span style='color:#ff8c00; font-size:15px; font-family:serif;'>{s['sanskrit']}</span><br>
-                    <span style='color:#aaa; font-size:12px; font-style:italic;'>{s['transliteration']}</span><br>
-                    <span style='color:#f0e6d3;'><b>Meaning:</b> {s['meaning']}</span>
+                    <span style='color:#888; font-size:12px;'> — {chapter_name}</span><br><br>
+                    <span style='color:#f0e6d3;'>{s['meaning']}</span>
                 </div>
                 """, unsafe_allow_html=True)
             st.markdown(f"""
@@ -475,7 +466,7 @@ EMOTIONS = {
     "😨 Fearful":     "I am overwhelmed with fear and guilt about my mistakes",
     "🤔 Lost":        "I feel completely lost and confused about my purpose and meaning of life",
     "🧐 Self-Doubt":  "I have severe self-doubt and very low confidence in myself",
-    "🎯 Distracted": "I am very distracted and unable to focus or concentrate on anything",
+    "🎯 Distracted":  "I am very distracted and unable to focus or concentrate on anything",
     "🙏 Lonely":      "I feel very lonely and like nobody truly understands me",
     "🙊 Jealous":     "I am feeling jealous and always comparing myself to others",
     "😫 Burnout":     "I am completely burned out, exhausted, and overwhelmed",
@@ -508,7 +499,6 @@ if seek:
         with st.spinner("🕉️ Seeking wisdom from the Bhagavad Gita..."):
             st.session_state.result = get_gita_guidance(user_input)
         st.session_state.voice_audio = {}
-        # Append to chat history
         st.session_state.chat_history.append({
             "input":    user_input,
             "shlokas":  st.session_state.result["shlokas"],
@@ -521,7 +511,7 @@ if seek:
 # ── Current result ────────────────────────────────────────────────────────────
 if st.session_state.result:
     result   = st.session_state.result
-    turn_idx = len(st.session_state.chat_history) - 1  # index of latest turn
+    turn_idx = len(st.session_state.chat_history) - 1
 
     st.markdown("---")
     show_image("krishna_arjuna", "🕉️ Krishna & Arjuna — Bhagavad Gita")
@@ -529,16 +519,14 @@ if st.session_state.result:
 
     for i, s in enumerate(result["shlokas"]):
         chapter_name = CHAPTER_NAMES.get(s["chapter"], "")
+        # ── English meaning only ──
         st.markdown(f"""
         <div class='shloka-box'>
             <h4 style='color:#ffd700; margin-top:0;'>
                 🕉️ Chapter {s['chapter']}, Verse {s['verse']}
                 <span style='color:#888; font-size:13px; font-weight:normal;'>&nbsp;— {chapter_name}</span>
             </h4>
-            <p style='color:#ff8c00; font-size:18px; font-family:serif; line-height:1.9;'>{s['sanskrit']}</p>
-            <p style='color:#aaa; font-style:italic; font-size:13px;'>{s['transliteration']}</p>
-            <hr style='border-color:#4a1e00;'/>
-            <p style='color:#f0e6d3;'><b>Meaning:</b> {s['meaning']}</p>
+            <p style='color:#f0e6d3; font-size:16px; line-height:1.9;'>{s['meaning']}</p>
         </div>
         """, unsafe_allow_html=True)
 
@@ -549,7 +537,7 @@ if st.session_state.result:
             if audio:
                 st.session_state.voice_audio[vkey] = audio
         if vkey in st.session_state.voice_audio:
-            st.markdown(f"<p style='color:#ffd700; font-size:13px; margin:8px 0 2px 0;'>🕉️ Shloka Recitation — Ch {s['chapter']}, Verse {s['verse']}</p>", unsafe_allow_html=True)
+            st.markdown(f"<p style='color:#ffd700; font-size:13px; margin:8px 0 2px 0;'>🕉️ Verse Recitation — Ch {s['chapter']}, Verse {s['verse']}</p>", unsafe_allow_html=True)
             st.audio(st.session_state.voice_audio[vkey], format="audio/mp3")
         else:
             st.caption("⚠️ Audio unavailable for this verse.")
@@ -598,7 +586,7 @@ if st.session_state.result:
     st.markdown("---")
     st.markdown("<p style='text-align:center; color:#ffd700; font-size:16px;'>✨ <i>Tat Tvam Asi — Thou Art That</i> ✨</p>", unsafe_allow_html=True)
 
-# ── Export section (visible once session has at least 1 turn) ──────────────
+# ── Export section ──────────────────────────────────────────────────────────
 if st.session_state.chat_history:
     st.markdown("---")
     st.markdown("### 📄 Export Your Session")
@@ -651,7 +639,7 @@ st.markdown("""
     🔒 <b style='color:#2ecc71;'>Privacy Notice:</b>
     Your inputs are sent to <a href='https://groq.com/privacy-policy/' target='_blank' style='color:#4a9eff;'>Groq AI</a> for inference only.
     <b>No data is stored</b> by this app. No personal information is collected. Session data is cleared when you close the tab.
-    Avoid sharing sensitive personal details — keep inputs general (e.g. “I feel anxious”).
+    Avoid sharing sensitive personal details — keep inputs general (e.g. "I feel anxious").
     </p>
 </div>
 """, unsafe_allow_html=True)

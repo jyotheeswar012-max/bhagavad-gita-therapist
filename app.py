@@ -246,20 +246,21 @@ st.markdown("""
 CACHE_DIR = "/tmp/gita_audio"
 os.makedirs(CACHE_DIR, exist_ok=True)
 
-# Raw GitHub URL for the hero Krishna image
-HERO_IMG_URL = "https://raw.githubusercontent.com/jyotheeswar012-max/bhagavad-gita-therapist/main/assets/krishna_flute.jpg"
+# ── Hero image: assets/krishna-flute.jpg (431KB high-quality golden Krishna) ──
+HERO_IMG_LOCAL  = "assets/krishna-flute.jpg"
+HERO_IMG_URL    = "https://raw.githubusercontent.com/jyotheeswar012-max/bhagavad-gita-therapist/main/assets/krishna-flute.jpg"
 
 IMAGE_SETS = {
     "krishna_arjuna": {
         "local": "assets/krishna_arjuna.jpg",
+        "min_size": 5000,
         "urls": [
             "https://www.holy-bhagavad-gita.org/public/img/arjuna-and-krishna-on-chariot.jpg",
-            "https://i.pinimg.com/originals/2e/3d/85/2e3d859e3c27c2c39d1e03462f97d6e2.jpg",
         ],
         "label": "Krishna & Arjuna",
     },
     "krishna_flute": {
-        "local": "assets/krishna_flute.jpg",
+        "local": HERO_IMG_LOCAL,
         "min_size": 100000,
         "urls": [
             HERO_IMG_URL,
@@ -269,6 +270,7 @@ IMAGE_SETS = {
     },
     "kurukshetra": {
         "local": "assets/kurukshetra.jpg",
+        "min_size": 5000,
         "urls": [
             "https://www.holy-bhagavad-gita.org/public/img/kurukshetra.jpg",
         ],
@@ -276,6 +278,7 @@ IMAGE_SETS = {
     },
     "gita_teaching": {
         "local": "assets/gita_teaching.jpg",
+        "min_size": 5000,
         "urls": [
             "https://www.holy-bhagavad-gita.org/public/img/krishna-teaching.jpg",
         ],
@@ -308,7 +311,7 @@ def load_images() -> dict:
     }
     for name, cfg in IMAGE_SETS.items():
         min_size = cfg.get("min_size", 5000)
-        # Use local file only if it's large enough (not a placeholder)
+        # Use local file only if large enough
         if os.path.exists(cfg["local"]):
             try:
                 if os.path.getsize(cfg["local"]) >= min_size:
@@ -316,10 +319,10 @@ def load_images() -> dict:
                     continue
             except Exception:
                 pass
-        # Try URLs in order
+        # Fetch from URLs
         for url in cfg["urls"]:
             try:
-                r = requests.get(url, headers=headers, timeout=12)
+                r = requests.get(url, headers=headers, timeout=15)
                 if r.status_code == 200 and len(r.content) > 5000:
                     imgs[name] = Image.open(io.BytesIO(r.content)).convert("RGB")
                     break

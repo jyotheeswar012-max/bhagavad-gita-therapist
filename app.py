@@ -17,11 +17,13 @@ st.set_page_config(
     layout="centered",
 )
 
-# Krishna & Mahabharata images (Wikimedia Commons — public domain)
-IMG_KRISHNA_ARJUNA = "https://upload.wikimedia.org/wikipedia/commons/thumb/0/0e/Bhagavad_Gita_by_Raja_Ravi_Varma.jpg/800px-Bhagavad_Gita_by_Raja_Ravi_Varma.jpg"
-IMG_KRISHNA_FLUTE  = "https://upload.wikimedia.org/wikipedia/commons/thumb/5/5e/Krishna_with_Flute.jpg/400px-Krishna_with_Flute.jpg"
-IMG_KURUKSHETRA    = "https://upload.wikimedia.org/wikipedia/commons/thumb/6/62/Mahabharata_battle.jpg/800px-Mahabharata_battle.jpg"
-IMG_KRISHNA_TEACH  = "https://upload.wikimedia.org/wikipedia/commons/thumb/b/b5/Bhagavad-gita-2.jpg/600px-Bhagavad-gita-2.jpg"
+# Reliable public-domain image URLs (raw GitHub / open CDN sources)
+IMG_KRISHNA_ARJUNA = "https://live.staticflickr.com/65535/53613130785_2e6cd2a94c_b.jpg"
+IMG_KRISHNA_FLUTE  = "https://upload.wikimedia.org/wikipedia/commons/5/5e/Krishna_with_Flute.jpg"
+IMG_KURUKSHETRA    = "https://live.staticflickr.com/65535/51892365228_bb6f17c8b9_b.jpg"
+IMG_KRISHNA_TEACH  = "https://live.staticflickr.com/65535/52463993319_41e8a8d327_b.jpg"
+
+# Use st.image() instead of raw HTML <img> for reliable rendering
 
 st.markdown("""
 <style>
@@ -40,26 +42,12 @@ st.markdown("""
         padding: 22px;
         margin: 12px 0;
     }
-    .hero-img {
-        width: 100%;
-        max-height: 380px;
-        object-fit: cover;
-        border-radius: 16px;
-        border: 2px solid #ff8c00;
-        margin-bottom: 10px;
-    }
     .img-caption {
         text-align: center;
         color: #ffd700;
         font-size: 12px;
         font-style: italic;
         margin-bottom: 16px;
-    }
-    .side-img {
-        width: 100%;
-        border-radius: 10px;
-        border: 1px solid #ff8c00;
-        margin-bottom: 8px;
     }
     h1, h2, h3 { color: #ffd700 !important; }
     p { color: #f0e6d3; }
@@ -233,13 +221,11 @@ for key in ["preset", "result", "voice_audio"]:
 
 # ── SIDEBAR ────────────────────────────────────────────────────────────────────
 with st.sidebar:
-    # Krishna with flute image in sidebar
-    st.markdown(
-        f"<img src='{IMG_KRISHNA_FLUTE}' class='side-img' alt='Lord Krishna'/>",
-        unsafe_allow_html=True
+    st.image(
+        "https://upload.wikimedia.org/wikipedia/commons/5/5e/Krishna_with_Flute.jpg",
+        caption="🪈 Lord Krishna",
+        use_container_width=True
     )
-    st.markdown("<p style='text-align:center; color:#ffd700; font-size:11px;'>🪈 Lord Krishna</p>", unsafe_allow_html=True)
-
     st.markdown("## 🎶 Background Music")
     selected_track = st.selectbox("Choose ambient sound:", list(MUSIC_TRACKS.keys()), index=0)
     track_path = MUSIC_TRACKS[selected_track]
@@ -279,14 +265,11 @@ with st.sidebar:
 st.markdown("<h1 style='text-align:center; font-size:2.5rem;'>🕉️ Bhagavad Gita AI Therapist</h1>", unsafe_allow_html=True)
 st.markdown("<p style='text-align:center; color:#ffd700; font-size:17px;'>Share your struggles. Receive ancient wisdom. Find modern clarity.</p>", unsafe_allow_html=True)
 
-# Hero image — Krishna & Arjuna on the battlefield (Raja Ravi Varma)
-st.markdown(
-    f"<img src='{IMG_KRISHNA_ARJUNA}' class='hero-img' alt='Krishna and Arjuna — Bhagavad Gita'/>",
-    unsafe_allow_html=True
-)
-st.markdown(
-    "<p class='img-caption'>Krishna imparting wisdom to Arjuna on the battlefield of Kurukshetra — Raja Ravi Varma</p>",
-    unsafe_allow_html=True
+# Hero image using st.image() — always works in Streamlit
+st.image(
+    "https://upload.wikimedia.org/wikipedia/commons/thumb/0/0e/Bhagavad_Gita_by_Raja_Ravi_Varma.jpg/800px-Bhagavad_Gita_by_Raja_Ravi_Varma.jpg",
+    caption="Krishna imparting wisdom to Arjuna on the battlefield of Kurukshetra — Raja Ravi Varma",
+    use_container_width=True
 )
 
 st.markdown("---")
@@ -298,20 +281,20 @@ c3.metric("🎭 Themes", "100+")
 c4.metric("🌐 Live", "Yes")
 st.markdown("---")
 
-# Mahabharata battle image section
-col_a, col_b = st.columns([1, 1])
+# Mahabharata two-column image section
+col_a, col_b = st.columns(2)
 with col_a:
-    st.markdown(
-        f"<img src='{IMG_KURUKSHETRA}' style='width:100%; border-radius:12px; border:1px solid #ff8c00;' alt='Kurukshetra Battle'/>",
-        unsafe_allow_html=True
+    st.image(
+        "https://upload.wikimedia.org/wikipedia/commons/thumb/6/62/Mahabharata_battle.jpg/800px-Mahabharata_battle.jpg",
+        caption="⚔️ The Battle of Kurukshetra",
+        use_container_width=True
     )
-    st.markdown("<p class='img-caption'>⚔️ The Battle of Kurukshetra</p>", unsafe_allow_html=True)
 with col_b:
-    st.markdown(
-        f"<img src='{IMG_KRISHNA_TEACH}' style='width:100%; border-radius:12px; border:1px solid #ff8c00;' alt='Krishna teaching Arjuna'/>",
-        unsafe_allow_html=True
+    st.image(
+        "https://upload.wikimedia.org/wikipedia/commons/thumb/b/b5/Bhagavad-gita-2.jpg/600px-Bhagavad-gita-2.jpg",
+        caption="🕉️ Krishna's Divine Teaching",
+        use_container_width=True
     )
-    st.markdown("<p class='img-caption'>🕉️ Krishna's Divine Teaching</p>", unsafe_allow_html=True)
 
 st.markdown("---")
 
@@ -362,11 +345,12 @@ if st.session_state.result:
     result = st.session_state.result
     st.markdown("---")
 
-    # Krishna teaching image above shlokas
-    st.markdown(
-        f"<img src='{IMG_KRISHNA_ARJUNA}' style='width:100%; max-height:220px; object-fit:cover; border-radius:12px; border:1px solid #ff8c00; margin-bottom:6px;' alt='Krishna and Arjuna'/>",
-        unsafe_allow_html=True
+    st.image(
+        "https://upload.wikimedia.org/wikipedia/commons/thumb/0/0e/Bhagavad_Gita_by_Raja_Ravi_Varma.jpg/800px-Bhagavad_Gita_by_Raja_Ravi_Varma.jpg",
+        caption="🕉️ Krishna & Arjuna — Bhagavad Gita",
+        use_container_width=True
     )
+
     st.markdown("### 📜 Shlokas for Your Situation")
 
     for i, s in enumerate(result["shlokas"]):

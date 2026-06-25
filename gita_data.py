@@ -273,12 +273,25 @@ SHLOKAS = [
      "themes": ["clarity", "resolved", "decision", "confidence", "ready", "transformation", "breakthrough", "overcome"]},
 ]
 
-# Build theme lookup map
+# ── Lookup Maps ─────────────────────────────────────────────────────────────────
+
+# Theme → shloka (first match)
 THEME_MAP = {
     theme: shloka
     for shloka in SHLOKAS
     for theme in shloka["themes"]
 }
+
+# (chapter, verse) → shloka
+VERSE_MAP = {
+    (s["chapter"], s["verse"]): s
+    for s in SHLOKAS
+}
+
+# chapter → list of shlokas
+CHAPTER_MAP = {}
+for s in SHLOKAS:
+    CHAPTER_MAP.setdefault(s["chapter"], []).append(s)
 
 CHAPTER_NAMES = {
     1:  "Arjuna Visada Yoga — The Grief of Arjuna",
@@ -300,3 +313,37 @@ CHAPTER_NAMES = {
     17: "Sraddhatraya Yoga — The Three Divisions of Faith",
     18: "Moksha Yoga — Liberation Through Renunciation",
 }
+
+# ── Utility Functions ───────────────────────────────────────────────────────────
+
+def get_shloka(chapter: int, verse: int) -> dict | None:
+    """Look up a shloka by exact chapter and verse number.
+    
+    Example:
+        s = get_shloka(2, 47)  # Returns the famous Karma shloka
+        print(s["meaning"])
+    """
+    return VERSE_MAP.get((chapter, verse))
+
+
+def get_chapter(chapter_number: int) -> list:
+    """Return all available shlokas from a given chapter.
+    
+    Example:
+        shlokas = get_chapter(6)  # All Dhyana Yoga shlokas
+        for s in shlokas:
+            print(f"Verse {s['verse']}: {s['meaning'][:60]}...")
+    """
+    return CHAPTER_MAP.get(chapter_number, [])
+
+
+def search_by_theme(keyword: str) -> list:
+    """Search all shlokas whose themes contain the given keyword (case-insensitive).
+    Returns a list of all matching shlokas (not just first match).
+    
+    Example:
+        results = search_by_theme("anxiety")
+        results = search_by_theme("grief")
+    """
+    keyword = keyword.lower().strip()
+    return [s for s in SHLOKAS if any(keyword in theme.lower() for theme in s["themes"])]

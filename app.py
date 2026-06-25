@@ -10,20 +10,13 @@ import requests
 from gtts import gTTS
 import io
 import re
+from PIL import Image
 
 st.set_page_config(
     page_title="Bhagavad Gita AI Therapist",
     page_icon="🕉️",
     layout="centered",
 )
-
-# Reliable public-domain image URLs (raw GitHub / open CDN sources)
-IMG_KRISHNA_ARJUNA = "https://live.staticflickr.com/65535/53613130785_2e6cd2a94c_b.jpg"
-IMG_KRISHNA_FLUTE  = "https://upload.wikimedia.org/wikipedia/commons/5/5e/Krishna_with_Flute.jpg"
-IMG_KURUKSHETRA    = "https://live.staticflickr.com/65535/51892365228_bb6f17c8b9_b.jpg"
-IMG_KRISHNA_TEACH  = "https://live.staticflickr.com/65535/52463993319_41e8a8d327_b.jpg"
-
-# Use st.image() instead of raw HTML <img> for reliable rendering
 
 st.markdown("""
 <style>
@@ -41,13 +34,6 @@ st.markdown("""
         border-radius: 14px;
         padding: 22px;
         margin: 12px 0;
-    }
-    .img-caption {
-        text-align: center;
-        color: #ffd700;
-        font-size: 12px;
-        font-style: italic;
-        margin-bottom: 16px;
     }
     h1, h2, h3 { color: #ffd700 !important; }
     p { color: #f0e6d3; }
@@ -70,13 +56,70 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 CACHE_DIR = "/tmp/gita_audio"
+IMG_DIR   = "/tmp/gita_images"
 os.makedirs(CACHE_DIR, exist_ok=True)
+os.makedirs(IMG_DIR,   exist_ok=True)
+
+# Images with multiple mirror sources — tries each until one works
+IMAGE_SOURCES = {
+    "krishna_arjuna": [
+        "https://upload.wikimedia.org/wikipedia/commons/0/0e/Bhagavad_Gita_by_Raja_Ravi_Varma.jpg",
+        "https://imgs.search.brave.com/Krishna_Arjuna_Gita.jpg",
+        "https://www.gitasupersite.iitk.ac.in/images/krishna.jpg",
+    ],
+    "krishna_flute": [
+        "https://upload.wikimedia.org/wikipedia/commons/5/5e/Krishna_with_Flute.jpg",
+        "https://www.krishna.com/sites/default/files/krishna-flute.jpg",
+    ],
+    "kurukshetra": [
+        "https://upload.wikimedia.org/wikipedia/commons/6/62/Mahabharata_battle.jpg",
+        "https://www.mahabharata-resources.org/images/battle.jpg",
+    ],
+    "gita_teaching": [
+        "https://upload.wikimedia.org/wikipedia/commons/b/b5/Bhagavad-gita-2.jpg",
+        "https://www.gitasupersite.iitk.ac.in/images/gita2.jpg",
+    ],
+}
+
+
+@st.cache_resource
+def load_images():
+    """Download images once and cache them as PIL Image objects."""
+    imgs = {}
+    headers = {"User-Agent": "Mozilla/5.0 (compatible; GitaApp/1.0)"}
+    for name, urls in IMAGE_SOURCES.items():
+        for url in urls:
+            try:
+                r = requests.get(url, headers=headers, timeout=10)
+                if r.status_code == 200 and len(r.content) > 5000:
+                    img = Image.open(io.BytesIO(r.content)).convert("RGB")
+                    imgs[name] = img
+                    break
+            except Exception:
+                continue
+    return imgs
+
+
+IMGS = load_images()
+
+
+def show_image(key: str, caption: str = "", width=None):
+    """Display a cached image or a friendly placeholder if unavailable."""
+    if key in IMGS:
+        st.image(IMGS[key], caption=caption, use_container_width=(width is None))
+    else:
+        st.markdown(
+            f"<div style='text-align:center; padding:20px; border:1px dashed #ff8c00; "
+            f"border-radius:10px; color:#ff8c00;'>🕉️ {caption}</div>",
+            unsafe_allow_html=True
+        )
+
 
 # Voice priority — deep, gravelly, resonant male (Chinmayananda-style)
 GURU_VOICES = [
-    "N2lVS1w4EtoT3dr4eOWO",  # Callum — deep gravelly
-    "JBFqnCBsd6RMkjVDRZzb",  # George — fallback
-    "onwK4e9ZLuTAKqWW03F9",  # Daniel — second fallback
+    "N2lVS1w4EtoT3dr4eOWO",  # Callum
+    "JBFqnCBsd6RMkjVDRZzb",  # George
+    "onwK4e9ZLuTAKqWW03F9",  # Daniel
 ]
 
 
@@ -102,13 +145,12 @@ def build_chinmayananda_script(shloka: dict) -> str:
     raw     = clean_sanskrit(shloka.get('sanskrit', ''))
     lines   = [l.strip() for l in raw.splitlines() if l.strip()]
     sanskrit_with_pauses = ' ... '.join(lines)
-    script = (
+    return (
         f"Shloka. Chapter {ch}, Verse {v}. "
         f"{sanskrit_with_pauses} ... "
         f"The Lord says ... {meaning} "
         f"Contemplate on this."
     )
-    return script
 
 
 def get_elevenlabs_audio(text: str, voice_id: str) -> bytes | None:
@@ -188,7 +230,6 @@ def get_shloka_audio(shloka: dict) -> bytes | None:
             return data
     except Exception:
         pass
-
     return None
 
 
@@ -221,11 +262,7 @@ for key in ["preset", "result", "voice_audio"]:
 
 # ── SIDEBAR ────────────────────────────────────────────────────────────────────
 with st.sidebar:
-    st.image(
-        "https://upload.wikimedia.org/wikipedia/commons/5/5e/Krishna_with_Flute.jpg",
-        caption="🪈 Lord Krishna",
-        use_container_width=True
-    )
+    show_image("krishna_flute", "🪈 Lord Krishna")
     st.markdown("## 🎶 Background Music")
     selected_track = st.selectbox("Choose ambient sound:", list(MUSIC_TRACKS.keys()), index=0)
     track_path = MUSIC_TRACKS[selected_track]
@@ -265,15 +302,9 @@ with st.sidebar:
 st.markdown("<h1 style='text-align:center; font-size:2.5rem;'>🕉️ Bhagavad Gita AI Therapist</h1>", unsafe_allow_html=True)
 st.markdown("<p style='text-align:center; color:#ffd700; font-size:17px;'>Share your struggles. Receive ancient wisdom. Find modern clarity.</p>", unsafe_allow_html=True)
 
-# Hero image using st.image() — always works in Streamlit
-st.image(
-    "https://upload.wikimedia.org/wikipedia/commons/thumb/0/0e/Bhagavad_Gita_by_Raja_Ravi_Varma.jpg/800px-Bhagavad_Gita_by_Raja_Ravi_Varma.jpg",
-    caption="Krishna imparting wisdom to Arjuna on the battlefield of Kurukshetra — Raja Ravi Varma",
-    use_container_width=True
-)
+show_image("krishna_arjuna", "Krishna imparting wisdom to Arjuna — Raja Ravi Varma")
 
 st.markdown("---")
-
 c1, c2, c3, c4 = st.columns(4)
 c1.metric("📜 Shlokas", len(SHLOKAS))
 c2.metric("📖 Chapters", 18)
@@ -281,20 +312,11 @@ c3.metric("🎭 Themes", "100+")
 c4.metric("🌐 Live", "Yes")
 st.markdown("---")
 
-# Mahabharata two-column image section
 col_a, col_b = st.columns(2)
 with col_a:
-    st.image(
-        "https://upload.wikimedia.org/wikipedia/commons/thumb/6/62/Mahabharata_battle.jpg/800px-Mahabharata_battle.jpg",
-        caption="⚔️ The Battle of Kurukshetra",
-        use_container_width=True
-    )
+    show_image("kurukshetra", "⚔️ The Battle of Kurukshetra")
 with col_b:
-    st.image(
-        "https://upload.wikimedia.org/wikipedia/commons/thumb/b/b5/Bhagavad-gita-2.jpg/600px-Bhagavad-gita-2.jpg",
-        caption="🕉️ Krishna's Divine Teaching",
-        use_container_width=True
-    )
+    show_image("gita_teaching", "🕉️ Krishna's Divine Teaching")
 
 st.markdown("---")
 
@@ -344,13 +366,7 @@ if seek:
 if st.session_state.result:
     result = st.session_state.result
     st.markdown("---")
-
-    st.image(
-        "https://upload.wikimedia.org/wikipedia/commons/thumb/0/0e/Bhagavad_Gita_by_Raja_Ravi_Varma.jpg/800px-Bhagavad_Gita_by_Raja_Ravi_Varma.jpg",
-        caption="🕉️ Krishna & Arjuna — Bhagavad Gita",
-        use_container_width=True
-    )
-
+    show_image("krishna_arjuna", "🕉️ Krishna & Arjuna — Bhagavad Gita")
     st.markdown("### 📜 Shlokas for Your Situation")
 
     for i, s in enumerate(result["shlokas"]):

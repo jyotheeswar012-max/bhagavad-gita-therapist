@@ -17,6 +17,12 @@ st.set_page_config(
     layout="centered",
 )
 
+# Krishna & Mahabharata images (Wikimedia Commons — public domain)
+IMG_KRISHNA_ARJUNA = "https://upload.wikimedia.org/wikipedia/commons/thumb/0/0e/Bhagavad_Gita_by_Raja_Ravi_Varma.jpg/800px-Bhagavad_Gita_by_Raja_Ravi_Varma.jpg"
+IMG_KRISHNA_FLUTE  = "https://upload.wikimedia.org/wikipedia/commons/thumb/5/5e/Krishna_with_Flute.jpg/400px-Krishna_with_Flute.jpg"
+IMG_KURUKSHETRA    = "https://upload.wikimedia.org/wikipedia/commons/thumb/6/62/Mahabharata_battle.jpg/800px-Mahabharata_battle.jpg"
+IMG_KRISHNA_TEACH  = "https://upload.wikimedia.org/wikipedia/commons/thumb/b/b5/Bhagavad-gita-2.jpg/600px-Bhagavad-gita-2.jpg"
+
 st.markdown("""
 <style>
     .stApp { background: linear-gradient(135deg, #1a0800 0%, #2d1200 50%, #1a0800 100%); }
@@ -33,6 +39,27 @@ st.markdown("""
         border-radius: 14px;
         padding: 22px;
         margin: 12px 0;
+    }
+    .hero-img {
+        width: 100%;
+        max-height: 380px;
+        object-fit: cover;
+        border-radius: 16px;
+        border: 2px solid #ff8c00;
+        margin-bottom: 10px;
+    }
+    .img-caption {
+        text-align: center;
+        color: #ffd700;
+        font-size: 12px;
+        font-style: italic;
+        margin-bottom: 16px;
+    }
+    .side-img {
+        width: 100%;
+        border-radius: 10px;
+        border: 1px solid #ff8c00;
+        margin-bottom: 8px;
     }
     h1, h2, h3 { color: #ffd700 !important; }
     p { color: #f0e6d3; }
@@ -58,11 +85,8 @@ CACHE_DIR = "/tmp/gita_audio"
 os.makedirs(CACHE_DIR, exist_ok=True)
 
 # Voice priority — deep, gravelly, resonant male (Chinmayananda-style)
-# Callum: N2lVS1w4EtoT3dr4eOWO  — deep gravelly intense, closest to Swami Chinmayananda
-# George: JBFqnCBsd6RMkjVDRZzb  — deep calm authoritative British
-# Daniel: onwK4e9ZLuTAKqWW03F9  — deep British male
 GURU_VOICES = [
-    "N2lVS1w4EtoT3dr4eOWO",  # Callum — first choice
+    "N2lVS1w4EtoT3dr4eOWO",  # Callum — deep gravelly
     "JBFqnCBsd6RMkjVDRZzb",  # George — fallback
     "onwK4e9ZLuTAKqWW03F9",  # Daniel — second fallback
 ]
@@ -79,28 +103,17 @@ def is_valid_mp3(data: bytes) -> bool:
 
 
 def clean_sanskrit(text: str) -> str:
-    """Remove verse numbers like ||47|| from Sanskrit Devanagari text."""
     text = re.sub(r'[|\u0964\u0965]+\s*\d*\s*[|\u0964\u0965]*', ' ', text)
     return text.strip()
 
 
 def build_chinmayananda_script(shloka: dict) -> str:
-    """
-    Builds a Swami Chinmayananda-style spoken script.
-    Pattern:
-      - 'Shloka. Chapter X, Verse Y.'
-      - Sanskrit lines separated by '...' pauses
-      - 'The Lord says ...' then the meaning
-      - Closes with 'Contemplate on this.'
-    """
     ch      = shloka['chapter']
     v       = shloka['verse']
     meaning = shloka.get('meaning', '')
-
-    raw   = clean_sanskrit(shloka.get('sanskrit', ''))
-    lines = [l.strip() for l in raw.splitlines() if l.strip()]
+    raw     = clean_sanskrit(shloka.get('sanskrit', ''))
+    lines   = [l.strip() for l in raw.splitlines() if l.strip()]
     sanskrit_with_pauses = ' ... '.join(lines)
-
     script = (
         f"Shloka. Chapter {ch}, Verse {v}. "
         f"{sanskrit_with_pauses} ... "
@@ -123,7 +136,7 @@ def get_elevenlabs_audio(text: str, voice_id: str) -> bytes | None:
             "voice_settings": {
                 "stability": 0.85,
                 "similarity_boost": 0.80,
-                "style": 0.40,        # expressiveness for gravitas
+                "style": 0.40,
                 "use_speaker_boost": True
             }
         }
@@ -148,7 +161,6 @@ def get_shloka_audio(shloka: dict) -> bytes | None:
 
     script = build_chinmayananda_script(shloka)
 
-    # 1. ElevenLabs — Callum / George / Daniel
     for vid in GURU_VOICES:
         audio = get_elevenlabs_audio(script, vid)
         if audio:
@@ -156,7 +168,6 @@ def get_shloka_audio(shloka: dict) -> bytes | None:
                 f.write(audio)
             return audio
 
-    # 2. edge_tts — Indian English male, slow & deep
     try:
         with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as tmp:
             tmp_path = tmp.name
@@ -176,7 +187,6 @@ def get_shloka_audio(shloka: dict) -> bytes | None:
     except Exception:
         pass
 
-    # 3. gTTS fallback
     try:
         sanskrit_text = clean_sanskrit(shloka.get("sanskrit", ""))
         tts = gTTS(text=sanskrit_text, lang="hi", slow=True)
@@ -221,7 +231,15 @@ for key in ["preset", "result", "voice_audio"]:
         st.session_state[key] = "" if key == "preset" else (None if key == "result" else {})
 
 
+# ── SIDEBAR ────────────────────────────────────────────────────────────────────
 with st.sidebar:
+    # Krishna with flute image in sidebar
+    st.markdown(
+        f"<img src='{IMG_KRISHNA_FLUTE}' class='side-img' alt='Lord Krishna'/>",
+        unsafe_allow_html=True
+    )
+    st.markdown("<p style='text-align:center; color:#ffd700; font-size:11px;'>🪈 Lord Krishna</p>", unsafe_allow_html=True)
+
     st.markdown("## 🎶 Background Music")
     selected_track = st.selectbox("Choose ambient sound:", list(MUSIC_TRACKS.keys()), index=0)
     track_path = MUSIC_TRACKS[selected_track]
@@ -257,8 +275,20 @@ with st.sidebar:
     st.markdown(f"**Total Shlokas:** {len(SHLOKAS)} across 18 chapters  \n**Themes:** 100+")
 
 
+# ── MAIN HEADER ────────────────────────────────────────────────────────────────
 st.markdown("<h1 style='text-align:center; font-size:2.5rem;'>🕉️ Bhagavad Gita AI Therapist</h1>", unsafe_allow_html=True)
 st.markdown("<p style='text-align:center; color:#ffd700; font-size:17px;'>Share your struggles. Receive ancient wisdom. Find modern clarity.</p>", unsafe_allow_html=True)
+
+# Hero image — Krishna & Arjuna on the battlefield (Raja Ravi Varma)
+st.markdown(
+    f"<img src='{IMG_KRISHNA_ARJUNA}' class='hero-img' alt='Krishna and Arjuna — Bhagavad Gita'/>",
+    unsafe_allow_html=True
+)
+st.markdown(
+    "<p class='img-caption'>Krishna imparting wisdom to Arjuna on the battlefield of Kurukshetra — Raja Ravi Varma</p>",
+    unsafe_allow_html=True
+)
+
 st.markdown("---")
 
 c1, c2, c3, c4 = st.columns(4)
@@ -266,6 +296,23 @@ c1.metric("📜 Shlokas", len(SHLOKAS))
 c2.metric("📖 Chapters", 18)
 c3.metric("🎭 Themes", "100+")
 c4.metric("🌐 Live", "Yes")
+st.markdown("---")
+
+# Mahabharata battle image section
+col_a, col_b = st.columns([1, 1])
+with col_a:
+    st.markdown(
+        f"<img src='{IMG_KURUKSHETRA}' style='width:100%; border-radius:12px; border:1px solid #ff8c00;' alt='Kurukshetra Battle'/>",
+        unsafe_allow_html=True
+    )
+    st.markdown("<p class='img-caption'>⚔️ The Battle of Kurukshetra</p>", unsafe_allow_html=True)
+with col_b:
+    st.markdown(
+        f"<img src='{IMG_KRISHNA_TEACH}' style='width:100%; border-radius:12px; border:1px solid #ff8c00;' alt='Krishna teaching Arjuna'/>",
+        unsafe_allow_html=True
+    )
+    st.markdown("<p class='img-caption'>🕉️ Krishna's Divine Teaching</p>", unsafe_allow_html=True)
+
 st.markdown("---")
 
 st.markdown("### 💛 How are you feeling right now?")
@@ -314,6 +361,12 @@ if seek:
 if st.session_state.result:
     result = st.session_state.result
     st.markdown("---")
+
+    # Krishna teaching image above shlokas
+    st.markdown(
+        f"<img src='{IMG_KRISHNA_ARJUNA}' style='width:100%; max-height:220px; object-fit:cover; border-radius:12px; border:1px solid #ff8c00; margin-bottom:6px;' alt='Krishna and Arjuna'/>",
+        unsafe_allow_html=True
+    )
     st.markdown("### 📜 Shlokas for Your Situation")
 
     for i, s in enumerate(result["shlokas"]):

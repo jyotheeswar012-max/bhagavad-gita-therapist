@@ -5,9 +5,12 @@ Provides:
   - build_text_export()  -> plain-text string (always available)
   - build_pdf_export()   -> bytes of a styled PDF (requires fpdf2)
 
-PDF Note: fpdf2 with core fonts (Helvetica) is Latin-1 only.
-All text passed to pdf.cell() / pdf.multi_cell() must be ASCII-safe.
-Use _safe() to sanitise any string before rendering.
+PDF Notes:
+  - fpdf2 core fonts (Helvetica) are Latin-1 only; use _safe() on every string.
+  - multi_cell(0, ...) computes width as (page_width - right_margin - current_x).
+    If the cursor X is not at the left margin the available width can be near-zero,
+    causing FPDFException: 'Not enough horizontal space to render a single character'.
+    Always call _mc() (which resets X first) instead of pdf.multi_cell() directly.
 """
 
 from datetime import datetime
@@ -16,43 +19,33 @@ import re
 
 
 # ---------------------------------------------------------------------------
-# Helpers
+# String sanitiser
 # ---------------------------------------------------------------------------
 
 def _safe(text: str) -> str:
     """
-    Convert a Unicode string to a Latin-1-safe string for fpdf2 core fonts.
-
-    Strategy (in order):
-      1. Replace common Unicode punctuation with ASCII equivalents.
-      2. Normalise to NFKD and drop combining characters.
-      3. Encode to latin-1, replacing anything still un-encodable with '?'.
+    Convert a Unicode string to Latin-1-safe for fpdf2 core fonts.
     """
-    # Common replacements
     replacements = {
-        "\u2014": "-",   # em dash
-        "\u2013": "-",   # en dash
-        "\u2018": "'",   # left single quote
-        "\u2019": "'",   # right single quote
-        "\u201c": '"',   # left double quote
-        "\u201d": '"',   # right double quote
-        "\u2026": "...", # ellipsis
-        "\u00a0": " ",   # non-breaking space
-        "\u2022": "*",   # bullet
+        "\u2014": "-",    # em dash
+        "\u2013": "-",    # en dash
+        "\u2018": "'",    # left single quote
+        "\u2019": "'",    # right single quote / apostrophe
+        "\u201c": '"',    # left double quote
+        "\u201d": '"',    # right double quote
+        "\u2026": "...",  # ellipsis
+        "\u00a0": " ",    # non-breaking space
+        "\u2022": "*",    # bullet
         "\u2122": "(TM)",
         "\u00ae": "(R)",
     }
     for uni, asc in replacements.items():
         text = text.replace(uni, asc)
-
-    # Strip emoji and other symbols (anything outside Basic Latin + Latin-1 Supplement)
+    # Strip anything outside Latin-1 (emoji, Devanagari, etc.)
     text = re.sub(r"[^\x00-\xff]", "", text)
-
-    # NFKD normalise + drop combining marks
+    # NFKD + drop combining diacritics
     text = unicodedata.normalize("NFKD", text)
     text = "".join(c for c in text if not unicodedata.combining(c))
-
-    # Final safety net
     return text.encode("latin-1", errors="replace").decode("latin-1")
 
 
@@ -65,17 +58,6 @@ def _ts() -> str:
 # ---------------------------------------------------------------------------
 
 def build_text_export(history: list[dict]) -> str:
-    """
-    Convert session chat history to a plain-text string.
-
-    Each history entry:
-      {
-        "input":    str,
-        "shlokas":  list[shloka_dict],
-        "guidance": str,
-        "feedback": int | None   # 1=helpful, -1=not helpful, None=no vote
-      }
-    """
     lines = [
         "Om  Bhagavad Gita AI Therapist -- Session Export",
         f"    Generated: {_ts()}",
@@ -111,7 +93,7 @@ def build_text_export(history: list[dict]) -> str:
 
 def build_pdf_export(history: list[dict]) -> bytes:
     """
-    Build a styled PDF of the session and return it as bytes.
+    Build a styled PDF and return it as bytes.
     Raises RuntimeError if fpdf2 is not installed.
     """
     try:
@@ -123,7 +105,19 @@ def build_pdf_export(history: list[dict]) -> bytes:
     pdf.set_auto_page_break(auto=True, margin=15)
     pdf.add_page()
 
-    # -- Title block -----------------------------------------------------------
+    # Left margin used throughout
+    L = pdf.l_margin  # typically 10 mm
+
+    def _mc(text: str, line_height: float = 6.0) -> None:
+        """
+        Safe multi_cell wrapper:
+          - Resets X to left margin so available width is always page_width - 2*margin.
+          - Sanitises text for Latin-1.
+        """
+        pdf.set_x(L)
+        pdf.multi_cell(0, line_height, _safe(text))
+
+    # -- Title block ----------------------------------------------------------
     pdf.set_fill_color(26, 8, 0)
     pdf.rect(0, 0, 210, 40, "F")
     pdf.set_text_color(255, 215, 0)
@@ -138,23 +132,28 @@ def build_pdf_export(history: list[dict]) -> bytes:
     pdf.set_text_color(30, 30, 30)
 
     for i, entry in enumerate(history, 1):
+
         # Turn header
+        pdf.set_x(L)
         pdf.set_fill_color(240, 230, 200)
         pdf.set_font("Helvetica", "B", 12)
         pdf.set_text_color(139, 69, 19)
         pdf.cell(0, 8, f"  Turn {i}", fill=True, ln=True)
         pdf.ln(2)
 
-        # User input
+        # User input label + text on separate lines
+        pdf.set_x(L)
         pdf.set_font("Helvetica", "B", 10)
         pdf.set_text_color(50, 50, 50)
-        pdf.cell(20, 6, "You:", ln=False)
+        pdf.cell(0, 6, "You asked:", ln=True)   # ln=True moves to next line
         pdf.set_font("Helvetica", "", 10)
-        pdf.multi_cell(0, 6, _safe(entry["input"]))
+        _mc(entry["input"], 6)
         pdf.ln(3)
 
         # Shlokas
         for s in entry["shlokas"]:
+            # Shloka header
+            pdf.set_x(L)
             pdf.set_fill_color(255, 248, 220)
             pdf.set_font("Helvetica", "B", 10)
             pdf.set_text_color(180, 80, 0)
@@ -163,45 +162,51 @@ def build_pdf_export(history: list[dict]) -> bytes:
                 _safe(f"  Shloka: Chapter {s['chapter']}, Verse {s['verse']}"),
                 fill=True, ln=True,
             )
+            # Transliteration
             pdf.set_font("Helvetica", "I", 9)
             pdf.set_text_color(100, 60, 0)
-            pdf.multi_cell(0, 5, _safe(s["transliteration"]))
+            _mc(s["transliteration"], 5)
+            # Meaning
             pdf.set_font("Helvetica", "", 9)
             pdf.set_text_color(50, 50, 50)
-            pdf.multi_cell(0, 5, _safe("Meaning: " + s["meaning"]))
+            _mc("Meaning: " + s["meaning"], 5)
             pdf.ln(2)
 
-        # Guidance
+        # Guidance header
+        pdf.set_x(L)
         pdf.set_fill_color(230, 240, 255)
         pdf.set_font("Helvetica", "B", 10)
         pdf.set_text_color(30, 80, 160)
         pdf.cell(0, 7, "  Krishna's Guidance", fill=True, ln=True)
+        # Guidance body
         pdf.set_font("Helvetica", "", 10)
         pdf.set_text_color(30, 30, 30)
-        pdf.multi_cell(0, 6, _safe(entry["guidance"]))
+        _mc(entry["guidance"], 6)
 
         # Feedback badge
         if entry.get("feedback") == 1:
+            pdf.set_x(L)
             pdf.set_font("Helvetica", "I", 9)
             pdf.set_text_color(0, 130, 0)
             pdf.cell(0, 6, "  [Helpful] Thank you for the feedback", ln=True)
         elif entry.get("feedback") == -1:
+            pdf.set_x(L)
             pdf.set_font("Helvetica", "I", 9)
             pdf.set_text_color(180, 0, 0)
             pdf.cell(0, 6, "  [Not helpful] Thank you for the feedback", ln=True)
 
         pdf.ln(5)
         pdf.set_draw_color(200, 180, 140)
-        pdf.line(10, pdf.get_y(), 200, pdf.get_y())
+        pdf.line(L, pdf.get_y(), 200, pdf.get_y())
         pdf.ln(5)
 
     # Disclaimer footer
     pdf.set_font("Helvetica", "I", 8)
     pdf.set_text_color(120, 120, 120)
-    pdf.multi_cell(
-        0, 5,
+    _mc(
         "This document is a personal spiritual reflection session. "
         "It is not a substitute for professional psychological or medical advice.",
+        5,
     )
 
     return bytes(pdf.output())

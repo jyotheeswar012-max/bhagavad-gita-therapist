@@ -2,6 +2,7 @@ import streamlit as st
 from therapist import get_gita_guidance
 from gita_data import SHLOKAS, CHAPTER_NAMES
 from music import MUSIC_TRACKS
+from export_utils import build_text_export, build_pdf_export
 import asyncio
 import edge_tts
 import os
@@ -11,6 +12,7 @@ from gtts import gTTS
 import io
 import re
 from PIL import Image, ImageDraw, ImageFont
+from datetime import datetime
 
 st.set_page_config(
     page_title="Bhagavad Gita AI Therapist",
@@ -20,7 +22,10 @@ st.set_page_config(
 
 st.markdown("""
 <style>
+    /* ── Base ── */
     .stApp { background: linear-gradient(135deg, #1a0800 0%, #2d1200 50%, #1a0800 100%); }
+
+    /* ── Cards ── */
     .shloka-box {
         background: linear-gradient(135deg, #2d1200, #4a1e00);
         border: 1px solid #ff8c00;
@@ -34,6 +39,14 @@ st.markdown("""
         border-radius: 14px;
         padding: 22px;
         margin: 12px 0;
+    }
+    .history-card {
+        background: linear-gradient(135deg, #1a1a0a, #2a2a10);
+        border: 1px solid #888820;
+        border-left: 4px solid #ffd700;
+        border-radius: 12px;
+        padding: 16px 20px;
+        margin: 8px 0;
     }
     .disclaimer-box {
         background: linear-gradient(135deg, #1a0a00, #2a1500);
@@ -51,14 +64,20 @@ st.markdown("""
         padding: 14px 20px;
         margin: 10px 0;
     }
+
+    /* ── Typography ── */
     h1, h2, h3 { color: #ffd700 !important; }
     p { color: #f0e6d3; }
+
+    /* ── Inputs ── */
     .stTextArea textarea {
         background-color: #2d1200 !important;
         color: #fff !important;
         border: 1px solid #ff8c00 !important;
         border-radius: 10px !important;
     }
+
+    /* ── Buttons ── */
     .stButton > button {
         background: linear-gradient(135deg, #ff6b00, #ffd700) !important;
         color: #1a0800 !important;
@@ -67,7 +86,33 @@ st.markdown("""
         border: none !important;
         font-size: 16px !important;
     }
+    .feedback-btn > button {
+        font-size: 20px !important;
+        background: transparent !important;
+        border: 1px solid #555 !important;
+        border-radius: 8px !important;
+        color: #ccc !important;
+        padding: 4px 14px !important;
+        min-height: 0 !important;
+    }
+
+    /* ── Sidebar ── */
     div[data-testid="stSidebar"] { background-color: #1a0800 !important; }
+
+    /* ── Mobile responsiveness ── */
+    @media (max-width: 640px) {
+        h1 { font-size: 1.6rem !important; }
+        .shloka-box, .guidance-box, .history-card { padding: 14px 12px; }
+        .stButton > button { font-size: 13px !important; }
+        /* Stack 4-col emotion grid to 2-col on small screens */
+        div[data-testid="column"] { min-width: 48% !important; }
+        /* Metric tiles: smaller font */
+        div[data-testid="stMetric"] label { font-size: 11px !important; }
+    }
+    @media (max-width: 400px) {
+        h1 { font-size: 1.25rem !important; }
+        div[data-testid="column"] { min-width: 100% !important; }
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -114,30 +159,35 @@ def make_placeholder(label: str) -> Image.Image:
     w, h = 800, 300
     img  = Image.new("RGB", (w, h), (30, 12, 0))
     draw = ImageDraw.Draw(img)
-    for i, col in enumerate([(255,140,0),(200,100,0),(255,200,0)]):
-        draw.rectangle([i*2, i*2, w-1-i*2, h-1-i*2], outline=col, width=1)
-    draw.ellipse([w//2-60, h//2-55, w//2+60, h//2+55], outline=(255,215,0), width=2)
+    for i, col in enumerate([(255, 140, 0), (200, 100, 0), (255, 200, 0)]):
+        draw.rectangle([i * 2, i * 2, w - 1 - i * 2, h - 1 - i * 2], outline=col, width=1)
+    draw.ellipse([w // 2 - 60, h // 2 - 55, w // 2 + 60, h // 2 + 55], outline=(255, 215, 0), width=2)
     try:
-        font_big = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 32)
-        font_sm  = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 18)
+        from config import FONT_PATHS_BOLD, FONT_PATHS_REGULAR
+        font_big = font_sm = None
+        for p in FONT_PATHS_BOLD:
+            try: font_big = ImageFont.truetype(p, 32); break
+            except Exception: pass
+        for p in FONT_PATHS_REGULAR:
+            try: font_sm = ImageFont.truetype(p, 18); break
+            except Exception: pass
+        font_big = font_big or ImageFont.load_default()
+        font_sm  = font_sm  or ImageFont.load_default()
     except Exception:
-        font_big = ImageFont.load_default()
-        font_sm  = font_big
-    om = "🕉️"
-    draw.text((w//2 - 20, h//2 - 20), om, fill=(255, 215, 0), font=font_big)
-    bbox = draw.textbbox((0,0), label, font=font_sm)
-    tw = bbox[2] - bbox[0]
-    draw.text(((w - tw)//2, h - 50), label, fill=(255, 200, 100), font=font_sm)
+        font_big = font_sm = ImageFont.load_default()
+    draw.text((w // 2 - 20, h // 2 - 20), "🕉️", fill=(255, 215, 0), font=font_big)
+    bbox = draw.textbbox((0, 0), label, font=font_sm)
+    draw.text(((w - (bbox[2] - bbox[0])) // 2, h - 50), label, fill=(255, 200, 100), font=font_sm)
     return img
 
 
 @st.cache_resource
 def load_images() -> dict:
-    imgs    = {}
+    imgs = {}
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0",
-        "Referer":    "https://www.google.com/",
-        "Accept":     "image/webp,image/apng,image/*,*/*;q=0.8",
+        "Referer": "https://www.google.com/",
+        "Accept": "image/webp,image/apng,image/*,*/*;q=0.8",
     }
     for name, cfg in IMAGE_SETS.items():
         if os.path.exists(cfg["local"]):
@@ -166,17 +216,17 @@ def show_image(key: str, caption: str = ""):
     st.image(IMGS[key], caption=caption, use_container_width=True)
 
 
-GURU_VOICES = [
-    "N2lVS1w4EtoT3dr4eOWO",
-    "JBFqnCBsd6RMkjVDRZzb",
-    "onwK4e9ZLuTAKqWW03F9",
-]
+from config import ELEVENLABS_VOICES as GURU_VOICES
+from config import (
+    EDGE_TTS_SHLOKA_VOICE, EDGE_TTS_SHLOKA_RATE, EDGE_TTS_SHLOKA_PITCH,
+    EDGE_TTS_GUIDANCE_VOICE, EDGE_TTS_GUIDANCE_RATE, EDGE_TTS_GUIDANCE_PITCH,
+)
 
 
 def is_valid_mp3(data: bytes) -> bool:
     if len(data) < 4:
         return False
-    if data[:3] == b'ID3':
+    if data[:3] == b"ID3":
         return True
     if data[0] == 0xFF and (data[1] & 0xE0) == 0xE0:
         return True
@@ -184,16 +234,16 @@ def is_valid_mp3(data: bytes) -> bool:
 
 
 def clean_sanskrit(text: str) -> str:
-    text = re.sub(r'[|\u0964\u0965]+\s*\d*\s*[|\u0964\u0965]*', ' ', text)
+    text = re.sub(r"[|\u0964\u0965]+\s*\d*\s*[|\u0964\u0965]*", " ", text)
     return text.strip()
 
 
 def build_chinmayananda_script(shloka: dict) -> str:
-    ch      = shloka['chapter']
-    v       = shloka['verse']
-    meaning = shloka.get('meaning', '')
-    raw     = clean_sanskrit(shloka.get('sanskrit', ''))
-    lines   = [l.strip() for l in raw.splitlines() if l.strip()]
+    ch = shloka["chapter"]
+    v  = shloka["verse"]
+    meaning = shloka.get("meaning", "")
+    raw  = clean_sanskrit(shloka.get("sanskrit", ""))
+    lines = [l.strip() for l in raw.splitlines() if l.strip()]
     return (
         f"Shloka. Chapter {ch}, Verse {v}. "
         f"{' ... '.join(lines)} ... "
@@ -212,7 +262,7 @@ def get_elevenlabs_audio(text: str, voice_id: str) -> bytes | None:
         payload = {
             "text": text,
             "model_id": "eleven_multilingual_v2",
-            "voice_settings": {"stability": 0.85, "similarity_boost": 0.80, "style": 0.40, "use_speaker_boost": True}
+            "voice_settings": {"stability": 0.85, "similarity_boost": 0.80, "style": 0.40, "use_speaker_boost": True},
         }
         r = requests.post(url, json=payload, headers=headers, timeout=25)
         if r.status_code == 200 and is_valid_mp3(r.content):
@@ -235,18 +285,23 @@ def get_shloka_audio(shloka: dict) -> bytes | None:
     for vid in GURU_VOICES:
         audio = get_elevenlabs_audio(script, vid)
         if audio:
-            with open(cache_file, "wb") as f: f.write(audio)
+            with open(cache_file, "wb") as f:
+                f.write(audio)
             return audio
     try:
         with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as tmp:
             tmp_path = tmp.name
         async def _g():
-            await edge_tts.Communicate(script, "en-IN-PrabhatNeural", rate="-25%", pitch="-10Hz").save(tmp_path)
+            await edge_tts.Communicate(
+                script, EDGE_TTS_SHLOKA_VOICE,
+                rate=EDGE_TTS_SHLOKA_RATE, pitch=EDGE_TTS_SHLOKA_PITCH
+            ).save(tmp_path)
         asyncio.run(_g())
         data = open(tmp_path, "rb").read()
         os.unlink(tmp_path)
         if is_valid_mp3(data):
-            with open(cache_file, "wb") as f: f.write(data)
+            with open(cache_file, "wb") as f:
+                f.write(data)
             return data
     except Exception:
         pass
@@ -257,7 +312,8 @@ def get_shloka_audio(shloka: dict) -> bytes | None:
         buf.seek(0)
         data = buf.read()
         if is_valid_mp3(data):
-            with open(cache_file, "wb") as f: f.write(data)
+            with open(cache_file, "wb") as f:
+                f.write(data)
             return data
     except Exception:
         pass
@@ -273,7 +329,10 @@ def make_guidance_voice(script: str) -> bytes | None:
         with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as tmp:
             tmp_path = tmp.name
         async def _g():
-            await edge_tts.Communicate(script, "en-IN-PrabhatNeural", rate="-20%", pitch="-8Hz").save(tmp_path)
+            await edge_tts.Communicate(
+                script, EDGE_TTS_GUIDANCE_VOICE,
+                rate=EDGE_TTS_GUIDANCE_RATE, pitch=EDGE_TTS_GUIDANCE_PITCH
+            ).save(tmp_path)
         asyncio.run(_g())
         data = open(tmp_path, "rb").read()
         os.unlink(tmp_path)
@@ -282,9 +341,17 @@ def make_guidance_voice(script: str) -> bytes | None:
         return None
 
 
-for key in ["preset", "result", "voice_audio", "disclaimer_accepted"]:
-    if key not in st.session_state:
-        st.session_state[key] = "" if key == "preset" else (None if key == "result" else ({} if key == "voice_audio" else False))
+# ── Session state init ───────────────────────────────────────────────────────────
+DEFAULTS = {
+    "preset": "",
+    "result": None,
+    "voice_audio": {},
+    "chat_history": [],    # list of {input, shlokas, guidance, feedback, ts}
+    "feedback": {},        # turn_index -> 1 or -1
+}
+for k, v in DEFAULTS.items():
+    if k not in st.session_state:
+        st.session_state[k] = v
 
 
 # ── SIDEBAR ──────────────────────────────────────────────────────────────────
@@ -304,6 +371,7 @@ with st.sidebar:
             st.error("❌ Audio file not found.")
     else:
         st.markdown("<p style='color:#aaa; font-size:13px;'>🔇 Music is off.</p>", unsafe_allow_html=True)
+
     st.markdown("---")
     st.markdown("## 📚 Browse All 18 Chapters")
     selected_chapter = st.selectbox(
@@ -321,8 +389,22 @@ with st.sidebar:
                 st.markdown(f"**Sanskrit:** {s['sanskrit']}")
                 st.markdown(f"*{s['transliteration']}*")
                 st.markdown(f"**Meaning:** {s['meaning']}")
+
     st.markdown("---")
     st.markdown(f"**Total Shlokas:** {len(SHLOKAS)} across 18 chapters  \n**Themes:** 100+")
+
+    # ── Chat history summary in sidebar ─────────────────────────────
+    if st.session_state.chat_history:
+        st.markdown("---")
+        st.markdown("## 💬 Session History")
+        for idx, entry in enumerate(reversed(st.session_state.chat_history), 1):
+            fb = entry.get("feedback")
+            fb_icon = " 👍" if fb == 1 else (" 👎" if fb == -1 else "")
+            with st.expander(f"Turn {len(st.session_state.chat_history) - idx + 1}{fb_icon}: {entry['input'][:40]}..."):
+                st.markdown(f"*{entry['ts']}*")
+                for s in entry["shlokas"]:
+                    st.markdown(f"- Ch {s['chapter']}, Verse {s['verse']}: {s['meaning'][:60]}...")
+
     st.markdown("---")
     st.markdown("""
     <div style='font-size:11px; color:#888; line-height:1.6;'>
@@ -345,7 +427,7 @@ c1, c2, c3, c4 = st.columns(4)
 c1.metric("📜 Shlokas", len(SHLOKAS))
 c2.metric("📖 Chapters", 18)
 c3.metric("🎭 Themes", "100+")
-c4.metric("🌐 Live", "Yes")
+c4.metric("💬 Turns", len(st.session_state.chat_history))
 st.markdown("---")
 
 col_a, col_b = st.columns(2)
@@ -355,6 +437,33 @@ with col_b:
     show_image("gita_teaching", "🕉️ Krishna's Divine Teaching")
 st.markdown("---")
 
+# ── Chat history display (most recent at bottom) ────────────────────────────
+if st.session_state.chat_history:
+    st.markdown("### 💬 Conversation History")
+    for idx, entry in enumerate(st.session_state.chat_history):
+        fb      = entry.get("feedback")
+        fb_icon = " 👍" if fb == 1 else (" 👎" if fb == -1 else "")
+        with st.expander(f"Turn {idx + 1}{fb_icon}  —  \"{entry['input'][:55]}...\"  ({entry['ts']})", expanded=False):
+            st.markdown(f"**You asked:** {entry['input']}")
+            for s in entry["shlokas"]:
+                chapter_name = CHAPTER_NAMES.get(s["chapter"], "")
+                st.markdown(f"""
+                <div class='shloka-box' style='padding:14px;'>
+                    <b style='color:#ffd700;'>🕉️ Ch {s['chapter']}, Verse {s['verse']}</b>
+                    <span style='color:#888; font-size:12px;'> — {chapter_name}</span><br>
+                    <span style='color:#ff8c00; font-size:15px; font-family:serif;'>{s['sanskrit']}</span><br>
+                    <span style='color:#aaa; font-size:12px; font-style:italic;'>{s['transliteration']}</span><br>
+                    <span style='color:#f0e6d3;'><b>Meaning:</b> {s['meaning']}</span>
+                </div>
+                """, unsafe_allow_html=True)
+            st.markdown(f"""
+            <div class='guidance-box' style='padding:14px;'>
+                <p style='color:#e0e0e0; font-size:14px; margin:0;'>{entry['guidance'].replace(chr(10), '<br>')}</p>
+            </div>
+            """, unsafe_allow_html=True)
+    st.markdown("---")
+
+# ── Input section ────────────────────────────────────────────────────────────
 st.markdown("### 💛 How are you feeling right now?")
 st.caption("Tap a feeling or type your own below ⬇️")
 
@@ -382,9 +491,11 @@ for i, (label, val) in enumerate(EMOTIONS.items()):
 
 st.markdown("### ✏️ Describe your situation")
 user_input = st.text_area(
-    "", value=st.session_state.preset,
+    "",
+    value=st.session_state.preset,
     placeholder="E.g. I am stressed about my exams and fear of failure is stopping me from studying...",
-    height=130, label_visibility="collapsed",
+    height=130,
+    label_visibility="collapsed",
 )
 col1, col2, col3 = st.columns([1, 2, 1])
 with col2:
@@ -397,15 +508,27 @@ if seek:
         with st.spinner("🕉️ Seeking wisdom from the Bhagavad Gita..."):
             st.session_state.result = get_gita_guidance(user_input)
         st.session_state.voice_audio = {}
+        # Append to chat history
+        st.session_state.chat_history.append({
+            "input":    user_input,
+            "shlokas":  st.session_state.result["shlokas"],
+            "guidance": st.session_state.result["guidance"],
+            "feedback": None,
+            "ts":       datetime.now().strftime("%I:%M %p"),
+        })
+        st.session_state.preset = ""
 
+# ── Current result ────────────────────────────────────────────────────────────
 if st.session_state.result:
-    result = st.session_state.result
+    result   = st.session_state.result
+    turn_idx = len(st.session_state.chat_history) - 1  # index of latest turn
+
     st.markdown("---")
     show_image("krishna_arjuna", "🕉️ Krishna & Arjuna — Bhagavad Gita")
     st.markdown("### 📜 Shlokas for Your Situation")
 
     for i, s in enumerate(result["shlokas"]):
-        chapter_name = CHAPTER_NAMES.get(s['chapter'], '')
+        chapter_name = CHAPTER_NAMES.get(s["chapter"], "")
         st.markdown(f"""
         <div class='shloka-box'>
             <h4 style='color:#ffd700; margin-top:0;'>
@@ -432,7 +555,7 @@ if st.session_state.result:
             st.caption("⚠️ Audio unavailable for this verse.")
 
     st.markdown("### 🧘 Krishna's Guidance for You")
-    guidance_text = result['guidance']
+    guidance_text = result["guidance"]
     st.markdown(f"""
     <div class='guidance-box'>
         <p style='color:#e0e0e0; line-height:1.9; font-size:15px;'>{guidance_text.replace(chr(10), '<br>')}</p>
@@ -442,23 +565,70 @@ if st.session_state.result:
     if st.button("🔊 Hear Krishna's Guidance", key="btn_guidance"):
         full_script = (
             f"O Arjuna. {guidance_text} "
-            f"This is the eternal truth. Go forward with courage. "
-            f"Surrender to the divine will. Tat Tvam Asi."
+            "This is the eternal truth. Go forward with courage. "
+            "Surrender to the divine will. Tat Tvam Asi."
         )
         with st.spinner("🕉️ Generating voice..."):
             audio = make_guidance_voice(full_script)
         if audio:
             st.session_state.voice_audio["guidance"] = audio
         else:
-            st.error("❌ Voice generation failed.")
+            st.error("❌ Voice generation failed. Please try again.")
 
     if "guidance" in st.session_state.voice_audio:
         st.audio(st.session_state.voice_audio["guidance"], format="audio/mp3")
 
+    # ── Feedback row ───────────────────────────────────────────────────────
+    current_fb = st.session_state.chat_history[turn_idx].get("feedback") if st.session_state.chat_history else None
+    st.markdown("<p style='color:#888; font-size:13px; margin-top:18px;'>Was this guidance helpful?</p>", unsafe_allow_html=True)
+    fb_col1, fb_col2, fb_col3 = st.columns([1, 1, 6])
+    with fb_col1:
+        thumb_up_label = "👍 Helpful" if current_fb != 1 else "✅ Helpful"
+        if st.button(thumb_up_label, key=f"fb_up_{turn_idx}"):
+            st.session_state.chat_history[turn_idx]["feedback"] = 1
+            st.toast("👍 Thank you! Glad this was helpful.", icon="✅")
+            st.rerun()
+    with fb_col2:
+        thumb_dn_label = "👎 Not helpful" if current_fb != -1 else "❌ Not helpful"
+        if st.button(thumb_dn_label, key=f"fb_dn_{turn_idx}"):
+            st.session_state.chat_history[turn_idx]["feedback"] = -1
+            st.toast("🙏 Thank you for the feedback. We'll aim to do better.", icon="🔄")
+            st.rerun()
+
     st.markdown("---")
     st.markdown("<p style='text-align:center; color:#ffd700; font-size:16px;'>✨ <i>Tat Tvam Asi — Thou Art That</i> ✨</p>", unsafe_allow_html=True)
 
-# ── BOTTOM DISCLAIMER & PRIVACY ──────────────────────────────────────────────
+# ── Export section (visible once session has at least 1 turn) ──────────────
+if st.session_state.chat_history:
+    st.markdown("---")
+    st.markdown("### 📄 Export Your Session")
+    st.caption("Download your conversation with shlokas and guidance for personal reflection.")
+    exp_col1, exp_col2 = st.columns(2)
+
+    with exp_col1:
+        txt_data = build_text_export(st.session_state.chat_history)
+        st.download_button(
+            label="📝 Download as Text (.txt)",
+            data=txt_data,
+            file_name=f"gita_session_{datetime.now().strftime('%Y%m%d_%H%M')}.txt",
+            mime="text/plain",
+            use_container_width=True,
+        )
+
+    with exp_col2:
+        try:
+            pdf_data = build_pdf_export(st.session_state.chat_history)
+            st.download_button(
+                label="📅 Download as PDF",
+                data=pdf_data,
+                file_name=f"gita_session_{datetime.now().strftime('%Y%m%d_%H%M')}.pdf",
+                mime="application/pdf",
+                use_container_width=True,
+            )
+        except RuntimeError as e:
+            st.info(f"ℹ️ PDF export unavailable: {e}")
+
+# ── Bottom disclaimer & privacy ─────────────────────────────────────────────
 st.markdown("---")
 st.markdown("""
 <div class='disclaimer-box'>
@@ -481,7 +651,7 @@ st.markdown("""
     🔒 <b style='color:#2ecc71;'>Privacy Notice:</b>
     Your inputs are sent to <a href='https://groq.com/privacy-policy/' target='_blank' style='color:#4a9eff;'>Groq AI</a> for inference only.
     <b>No data is stored</b> by this app. No personal information is collected. Session data is cleared when you close the tab.
-    Avoid sharing sensitive personal details — keep inputs general (e.g. "I feel anxious").
+    Avoid sharing sensitive personal details — keep inputs general (e.g. “I feel anxious”).
     </p>
 </div>
 """, unsafe_allow_html=True)

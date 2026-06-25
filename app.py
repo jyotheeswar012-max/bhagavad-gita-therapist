@@ -231,11 +231,38 @@ def is_valid_mp3(data: bytes) -> bool:
     return False
 
 
+def clean_meaning(text: str) -> str:
+    text = (text or "").strip()
+    if not text:
+        return ""
+
+    has_devanagari = bool(re.search(r"[\u0900-\u097F]", text))
+    has_gloss_marks = "?" in text
+    if not (has_devanagari and has_gloss_marks):
+        return text
+
+    ascii_text = text.encode("ascii", "ignore").decode("ascii")
+    ascii_text = re.sub(r"\b\d+(?:\.\d+)?\b", " ", ascii_text)
+    ascii_text = re.sub(r"\b[A-Za-z]+\?\b", " ", ascii_text)
+    ascii_text = re.sub(r"\?+", " ", ascii_text)
+    ascii_text = re.sub(r"\b(?:No commentary|No commentry)\.?\b", " ", ascii_text, flags=re.IGNORECASE)
+    ascii_text = re.sub(r"\s+", " ", ascii_text).strip()
+
+    sentences = re.findall(r"[A-Z][^.?!]*[.?!]", ascii_text)
+    cleaned = " ".join(s.strip() for s in sentences)
+    if cleaned:
+        return cleaned
+
+    fragments = [frag.strip(" -,:;") for frag in re.split(r"(?<=[a-z])\s+(?=[A-Z])", ascii_text) if frag.strip()]
+    english_like = [frag for frag in fragments if len(frag.split()) >= 3]
+    return " ".join(english_like).strip() or "English meaning unavailable."
+
+
 def build_voice_script(shloka: dict) -> str:
     """English-only TTS script — no Sanskrit."""
     ch      = shloka["chapter"]
     v       = shloka["verse"]
-    meaning = shloka.get("meaning", "")
+    meaning = clean_meaning(shloka.get("meaning", ""))
     return (
         f"Shloka. Chapter {ch}, Verse {v}. "
         f"The Lord says ... {meaning} "
@@ -297,7 +324,7 @@ def get_shloka_audio(shloka: dict) -> bytes | None:
     except Exception:
         pass
     try:
-        tts = gTTS(text=shloka.get("meaning", ""), lang="en", slow=False)
+        tts = gTTS(text=clean_meaning(shloka.get("meaning", "")), lang="en", slow=False)
         buf = io.BytesIO()
         tts.write_to_fp(buf)
         buf.seek(0)
@@ -337,8 +364,8 @@ DEFAULTS = {
     "preset": "",
     "result": None,
     "voice_audio": {},
-    "chat_history": [],    # list of {input, shlokas, guidance, feedback, ts}
-    "feedback": {},        # turn_index -> 1 or -1
+    "chat_history": [],
+    "feedback": {},
 }
 for k, v in DEFAULTS.items():
     if k not in st.session_state:
@@ -377,16 +404,15 @@ with st.sidebar:
         st.markdown(f"*{len(chapter_shlokas)} shlokas loaded*")
         for s in chapter_shlokas:
             with st.expander(f"Verse {s['verse']}"):
-                # ── Sanskrit + English meaning (no transliteration) ──
+                meaning = clean_meaning(s.get("meaning", ""))
                 st.markdown(f"""
                 <p style='color:#ff8c00; font-size:14px; font-family:serif; line-height:1.8;'>{s['sanskrit']}</p>
-                <p style='color:#f0e6d3; font-size:13px;'><b>Meaning:</b> {s['meaning']}</p>
+                <p style='color:#f0e6d3; font-size:13px;'><b>Meaning:</b> {meaning}</p>
                 """, unsafe_allow_html=True)
 
     st.markdown("---")
     st.markdown(f"**Total Shlokas:** {len(SHLOKAS)} across 18 chapters  \n**Themes:** 100+")
 
-    # ── Chat history summary in sidebar ─────────────────────────────
     if st.session_state.chat_history:
         st.markdown("---")
         st.markdown("## 💬 Session History")
@@ -396,7 +422,8 @@ with st.sidebar:
             with st.expander(f"Turn {len(st.session_state.chat_history) - idx + 1}{fb_icon}: {entry['input'][:40]}..."):
                 st.markdown(f"*{entry['ts']}*")
                 for s in entry["shlokas"]:
-                    st.markdown(f"- Ch {s['chapter']}, Verse {s['verse']}: {s['meaning'][:60]}...")
+                    meaning = clean_meaning(s.get("meaning", ""))
+                    st.markdown(f"- Ch {s['chapter']}, Verse {s['verse']}: {meaning[:60]}...")
 
     st.markdown("---")
     st.markdown("""
@@ -409,7 +436,6 @@ with st.sidebar:
     """, unsafe_allow_html=True)
 
 
-# ── MAIN ──────────────────────────────────────────────────────────────────────
 st.markdown("<h1 style='text-align:center; font-size:2.5rem;'>🕉️ Bhagavad Gita AI Therapist</h1>", unsafe_allow_html=True)
 st.markdown("<p style='text-align:center; color:#ffd700; font-size:17px;'>Share your struggles. Receive ancient wisdom. Find modern clarity.</p>", unsafe_allow_html=True)
 
@@ -430,24 +456,23 @@ with col_b:
     show_image("gita_teaching", "🕉️ Krishna's Divine Teaching")
 st.markdown("---")
 
-# ── Chat history display ────────────────────────────────────────────────────
 if st.session_state.chat_history:
     st.markdown("### 💬 Conversation History")
     for idx, entry in enumerate(st.session_state.chat_history):
-        fb      = entry.get("feedback")
+        fb = entry.get("feedback")
         fb_icon = " 👍" if fb == 1 else (" 👎" if fb == -1 else "")
         with st.expander(f"Turn {idx + 1}{fb_icon}  —  \"{entry['input'][:55]}...\"  ({entry['ts']})", expanded=False):
             st.markdown(f"**You asked:** {entry['input']}")
             for s in entry["shlokas"]:
                 chapter_name = CHAPTER_NAMES.get(s["chapter"], "")
-                # ── Sanskrit + English meaning (no transliteration) ──
+                meaning = clean_meaning(s.get("meaning", ""))
                 st.markdown(f"""
                 <div class='shloka-box' style='padding:14px;'>
                     <b style='color:#ffd700;'>🕉️ Ch {s['chapter']}, Verse {s['verse']}</b>
                     <span style='color:#888; font-size:12px;'> — {chapter_name}</span><br>
                     <p style='color:#ff8c00; font-size:15px; font-family:serif; line-height:1.9; margin:10px 0 6px 0;'>{s['sanskrit']}</p>
                     <hr style='border-color:#4a1e00; margin:8px 0;'/>
-                    <span style='color:#f0e6d3;'><b>Meaning:</b> {s['meaning']}</span>
+                    <span style='color:#f0e6d3;'><b>Meaning:</b> {meaning}</span>
                 </div>
                 """, unsafe_allow_html=True)
             st.markdown(f"""
@@ -457,23 +482,22 @@ if st.session_state.chat_history:
             """, unsafe_allow_html=True)
     st.markdown("---")
 
-# ── Input section ────────────────────────────────────────────────────────────
 st.markdown("### 💛 How are you feeling right now?")
 st.caption("Tap a feeling or type your own below ⬇️")
 
 EMOTIONS = {
-    "😟 Anxious":     "I am feeling very anxious and stressed about my future, work, and results",
+    "😟 Anxious": "I am feeling very anxious and stressed about my future, work, and results",
     "💔 Heartbroken": "I am heartbroken and sad after a painful loss or breakup",
     "😞 Demotivated": "I feel demotivated, lazy and like giving up on everything",
-    "😠 Angry":       "I am feeling very angry, full of ego and pride",
-    "😨 Fearful":     "I am overwhelmed with fear and guilt about my mistakes",
-    "🤔 Lost":        "I feel completely lost and confused about my purpose and meaning of life",
-    "🧐 Self-Doubt":  "I have severe self-doubt and very low confidence in myself",
-    "🎯 Distracted":  "I am very distracted and unable to focus or concentrate on anything",
-    "🙏 Lonely":      "I feel very lonely and like nobody truly understands me",
-    "🙊 Jealous":     "I am feeling jealous and always comparing myself to others",
-    "😫 Burnout":     "I am completely burned out, exhausted, and overwhelmed",
-    "💥 Rage":        "I have uncontrolled anger and rage that I cannot manage",
+    "😠 Angry": "I am feeling very angry, full of ego and pride",
+    "😨 Fearful": "I am overwhelmed with fear and guilt about my mistakes",
+    "🤔 Lost": "I feel completely lost and confused about my purpose and meaning of life",
+    "🧐 Self-Doubt": "I have severe self-doubt and very low confidence in myself",
+    "🎯 Distracted": "I am very distracted and unable to focus or concentrate on anything",
+    "🙏 Lonely": "I feel very lonely and like nobody truly understands me",
+    "🙊 Jealous": "I am feeling jealous and always comparing myself to others",
+    "😫 Burnout": "I am completely burned out, exhausted, and overwhelmed",
+    "💥 Rage": "I have uncontrolled anger and rage that I cannot manage",
 }
 
 cols = st.columns(4)
@@ -503,17 +527,16 @@ if seek:
             st.session_state.result = get_gita_guidance(user_input)
         st.session_state.voice_audio = {}
         st.session_state.chat_history.append({
-            "input":    user_input,
-            "shlokas":  st.session_state.result["shlokas"],
+            "input": user_input,
+            "shlokas": st.session_state.result["shlokas"],
             "guidance": st.session_state.result["guidance"],
             "feedback": None,
-            "ts":       datetime.now().strftime("%I:%M %p"),
+            "ts": datetime.now().strftime("%I:%M %p"),
         })
         st.session_state.preset = ""
 
-# ── Current result ────────────────────────────────────────────────────────────
 if st.session_state.result:
-    result   = st.session_state.result
+    result = st.session_state.result
     turn_idx = len(st.session_state.chat_history) - 1
 
     st.markdown("---")
@@ -522,7 +545,7 @@ if st.session_state.result:
 
     for i, s in enumerate(result["shlokas"]):
         chapter_name = CHAPTER_NAMES.get(s["chapter"], "")
-        # ── Sanskrit + English meaning (no transliteration) ──
+        meaning = clean_meaning(s.get("meaning", ""))
         st.markdown(f"""
         <div class='shloka-box'>
             <h4 style='color:#ffd700; margin-top:0;'>
@@ -531,7 +554,7 @@ if st.session_state.result:
             </h4>
             <p style='color:#ff8c00; font-size:18px; font-family:serif; line-height:1.9; margin-bottom:12px;'>{s['sanskrit']}</p>
             <hr style='border-color:#4a1e00;'/>
-            <p style='color:#f0e6d3; font-size:15px; line-height:1.8;'><b>Meaning:</b> {s['meaning']}</p>
+            <p style='color:#f0e6d3; font-size:15px; line-height:1.8;'><b>Meaning:</b> {meaning}</p>
         </div>
         """, unsafe_allow_html=True)
 
@@ -571,7 +594,6 @@ if st.session_state.result:
     if "guidance" in st.session_state.voice_audio:
         st.audio(st.session_state.voice_audio["guidance"], format="audio/mp3")
 
-    # ── Feedback row ───────────────────────────────────────────────────────
     current_fb = st.session_state.chat_history[turn_idx].get("feedback") if st.session_state.chat_history else None
     st.markdown("<p style='color:#888; font-size:13px; margin-top:18px;'>Was this guidance helpful?</p>", unsafe_allow_html=True)
     fb_col1, fb_col2, fb_col3 = st.columns([1, 1, 6])
@@ -591,7 +613,6 @@ if st.session_state.result:
     st.markdown("---")
     st.markdown("<p style='text-align:center; color:#ffd700; font-size:16px;'>✨ <i>Tat Tvam Asi — Thou Art That</i> ✨</p>", unsafe_allow_html=True)
 
-# ── Export section ──────────────────────────────────────────────────────────
 if st.session_state.chat_history:
     st.markdown("---")
     st.markdown("### 📄 Export Your Session")
@@ -621,7 +642,6 @@ if st.session_state.chat_history:
         except RuntimeError as e:
             st.info(f"ℹ️ PDF export unavailable: {e}")
 
-# ── Bottom disclaimer & privacy ─────────────────────────────────────────────
 st.markdown("---")
 st.markdown("""
 <div class='disclaimer-box'>

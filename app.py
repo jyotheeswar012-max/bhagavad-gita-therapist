@@ -297,7 +297,6 @@ def get_shloka_audio(shloka: dict) -> bytes | None:
     except Exception:
         pass
     try:
-        # gTTS fallback: read English meaning aloud
         tts = gTTS(text=shloka.get("meaning", ""), lang="en", slow=False)
         buf = io.BytesIO()
         tts.write_to_fp(buf)
@@ -378,9 +377,11 @@ with st.sidebar:
         st.markdown(f"*{len(chapter_shlokas)} shlokas loaded*")
         for s in chapter_shlokas:
             with st.expander(f"Verse {s['verse']}"):
-                # ── English meaning only ──
-                st.markdown(f"**Ch {s['chapter']}, Verse {s['verse']}**")
-                st.markdown(s["meaning"])
+                # ── Sanskrit + English meaning (no transliteration) ──
+                st.markdown(f"""
+                <p style='color:#ff8c00; font-size:14px; font-family:serif; line-height:1.8;'>{s['sanskrit']}</p>
+                <p style='color:#f0e6d3; font-size:13px;'><b>Meaning:</b> {s['meaning']}</p>
+                """, unsafe_allow_html=True)
 
     st.markdown("---")
     st.markdown(f"**Total Shlokas:** {len(SHLOKAS)} across 18 chapters  \n**Themes:** 100+")
@@ -439,12 +440,14 @@ if st.session_state.chat_history:
             st.markdown(f"**You asked:** {entry['input']}")
             for s in entry["shlokas"]:
                 chapter_name = CHAPTER_NAMES.get(s["chapter"], "")
-                # ── English meaning only ──
+                # ── Sanskrit + English meaning (no transliteration) ──
                 st.markdown(f"""
                 <div class='shloka-box' style='padding:14px;'>
                     <b style='color:#ffd700;'>🕉️ Ch {s['chapter']}, Verse {s['verse']}</b>
-                    <span style='color:#888; font-size:12px;'> — {chapter_name}</span><br><br>
-                    <span style='color:#f0e6d3;'>{s['meaning']}</span>
+                    <span style='color:#888; font-size:12px;'> — {chapter_name}</span><br>
+                    <p style='color:#ff8c00; font-size:15px; font-family:serif; line-height:1.9; margin:10px 0 6px 0;'>{s['sanskrit']}</p>
+                    <hr style='border-color:#4a1e00; margin:8px 0;'/>
+                    <span style='color:#f0e6d3;'><b>Meaning:</b> {s['meaning']}</span>
                 </div>
                 """, unsafe_allow_html=True)
             st.markdown(f"""
@@ -519,14 +522,16 @@ if st.session_state.result:
 
     for i, s in enumerate(result["shlokas"]):
         chapter_name = CHAPTER_NAMES.get(s["chapter"], "")
-        # ── English meaning only ──
+        # ── Sanskrit + English meaning (no transliteration) ──
         st.markdown(f"""
         <div class='shloka-box'>
             <h4 style='color:#ffd700; margin-top:0;'>
                 🕉️ Chapter {s['chapter']}, Verse {s['verse']}
                 <span style='color:#888; font-size:13px; font-weight:normal;'>&nbsp;— {chapter_name}</span>
             </h4>
-            <p style='color:#f0e6d3; font-size:16px; line-height:1.9;'>{s['meaning']}</p>
+            <p style='color:#ff8c00; font-size:18px; font-family:serif; line-height:1.9; margin-bottom:12px;'>{s['sanskrit']}</p>
+            <hr style='border-color:#4a1e00;'/>
+            <p style='color:#f0e6d3; font-size:15px; line-height:1.8;'><b>Meaning:</b> {s['meaning']}</p>
         </div>
         """, unsafe_allow_html=True)
 

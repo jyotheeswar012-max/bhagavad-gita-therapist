@@ -74,7 +74,6 @@ st.markdown("""
 CACHE_DIR = "/tmp/gita_audio"
 os.makedirs(CACHE_DIR, exist_ok=True)
 
-# Images: local assets first, then URL fallbacks, then PIL placeholder
 IMAGE_SETS = {
     "krishna_arjuna": {
         "local": "assets/krishna_arjuna.jpg",
@@ -112,7 +111,6 @@ IMAGE_SETS = {
 
 
 def make_placeholder(label: str) -> Image.Image:
-    """Generate a beautiful dark golden PIL placeholder image."""
     w, h = 800, 300
     img  = Image.new("RGB", (w, h), (30, 12, 0))
     draw = ImageDraw.Draw(img)
@@ -289,7 +287,7 @@ for key in ["preset", "result", "voice_audio", "disclaimer_accepted"]:
         st.session_state[key] = "" if key == "preset" else (None if key == "result" else ({} if key == "voice_audio" else False))
 
 
-# ── SIDEBAR ─────────────────────────────────────────────────────────────────
+# ── SIDEBAR ──────────────────────────────────────────────────────────────────
 with st.sidebar:
     show_image("krishna_flute", "🪈 Lord Krishna")
     st.markdown("## 🎶 Background Music")
@@ -336,37 +334,9 @@ with st.sidebar:
     """, unsafe_allow_html=True)
 
 
-# ── MAIN ──────────────────────────────────────────────────────────────────
+# ── MAIN ──────────────────────────────────────────────────────────────────────
 st.markdown("<h1 style='text-align:center; font-size:2.5rem;'>🕉️ Bhagavad Gita AI Therapist</h1>", unsafe_allow_html=True)
 st.markdown("<p style='text-align:center; color:#ffd700; font-size:17px;'>Share your struggles. Receive ancient wisdom. Find modern clarity.</p>", unsafe_allow_html=True)
-
-# ── MENTAL HEALTH DISCLAIMER BANNER ────────────────────────────────────────
-st.markdown("""
-<div class='disclaimer-box'>
-    <p style='color:#ffaa80; font-size:13px; margin:0; line-height:1.7;'>
-    ⚠️ <b style='color:#ff6b35;'>Important Disclaimer:</b>
-    This app offers <b>spiritual reflection and emotional support</b> inspired by the Bhagavad Gita.
-    It is <b>not a substitute</b> for professional psychological, psychiatric, or medical advice.
-    If you are in crisis or experiencing thoughts of self-harm, please contact a mental health professional immediately.
-    <br>
-    🇮🇳 <b>iCall (India):</b> 9152987821 &nbsp;|
-    🇮🇳 <b>Vandrevala Foundation:</b> 1860-2662-345 (24/7) &nbsp;|
-    🇺🇸 <b>988 Lifeline (USA):</b> Call/text 988
-    </p>
-</div>
-""", unsafe_allow_html=True)
-
-# ── PRIVACY NOTICE ────────────────────────────────────────────────────────────
-st.markdown("""
-<div class='privacy-box'>
-    <p style='color:#a8e6c1; font-size:12px; margin:0; line-height:1.6;'>
-    🔒 <b style='color:#2ecc71;'>Privacy Notice:</b>
-    Your inputs are sent to <a href='https://groq.com/privacy-policy/' target='_blank' style='color:#4a9eff;'>Groq AI</a> for inference only.
-    <b>No data is stored</b> by this app. No personal information is collected. Session data is cleared when you close the tab.
-    Avoid sharing sensitive personal details — keep inputs general (e.g. “I feel anxious”).
-    </p>
-</div>
-""", unsafe_allow_html=True)
 
 show_image("krishna_arjuna", "Krishna imparting wisdom to Arjuna on the battlefield of Kurukshetra")
 st.markdown("---")
@@ -488,11 +458,36 @@ if st.session_state.result:
     st.markdown("---")
     st.markdown("<p style='text-align:center; color:#ffd700; font-size:16px;'>✨ <i>Tat Tvam Asi — Thou Art That</i> ✨</p>", unsafe_allow_html=True)
 
+# ── BOTTOM DISCLAIMER & PRIVACY ──────────────────────────────────────────────
 st.markdown("---")
 st.markdown("""
-<div style='text-align:center; color:#555; font-size:12px; line-height:1.8;'>
-    Built with ❤️ using Streamlit &amp; Groq AI · Inspired by the eternal wisdom of the Bhagavad Gita<br>
-    ⚠️ <i>Not a substitute for professional mental health advice.</i>
-    <a href='https://groq.com/privacy-policy/' target='_blank' style='color:#4a9eff;'>Privacy Policy</a>
+<div class='disclaimer-box'>
+    <p style='color:#ffaa80; font-size:13px; margin:0; line-height:1.7;'>
+    ⚠️ <b style='color:#ff6b35;'>Important Disclaimer:</b>
+    This app offers <b>spiritual reflection and emotional support</b> inspired by the Bhagavad Gita.
+    It is <b>not a substitute</b> for professional psychological, psychiatric, or medical advice.
+    If you are in crisis or experiencing thoughts of self-harm, please contact a mental health professional immediately.
+    <br>
+    🇮🇳 <b>iCall (India):</b> 9152987821 &nbsp;|
+    🇮🇳 <b>Vandrevala Foundation:</b> 1860-2662-345 (24/7) &nbsp;|
+    🇺🇸 <b>988 Lifeline (USA):</b> Call/text 988
+    </p>
+</div>
+""", unsafe_allow_html=True)
+
+st.markdown("""
+<div class='privacy-box'>
+    <p style='color:#a8e6c1; font-size:12px; margin:0; line-height:1.6;'>
+    🔒 <b style='color:#2ecc71;'>Privacy Notice:</b>
+    Your inputs are sent to <a href='https://groq.com/privacy-policy/' target='_blank' style='color:#4a9eff;'>Groq AI</a> for inference only.
+    <b>No data is stored</b> by this app. No personal information is collected. Session data is cleared when you close the tab.
+    Avoid sharing sensitive personal details — keep inputs general (e.g. "I feel anxious").
+    </p>
+</div>
+""", unsafe_allow_html=True)
+
+st.markdown("""
+<div style='text-align:center; color:#555; font-size:12px; line-height:1.8; margin-top:12px;'>
+    Built with ❤️ using Streamlit &amp; Groq AI · Inspired by the eternal wisdom of the Bhagavad Gita
 </div>
 """, unsafe_allow_html=True)

@@ -10,7 +10,7 @@ import requests
 from gtts import gTTS
 import io
 import re
-from PIL import Image
+from PIL import Image, ImageDraw, ImageFont
 
 st.set_page_config(
     page_title="Bhagavad Gita AI Therapist",
@@ -56,63 +56,107 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 CACHE_DIR = "/tmp/gita_audio"
-IMG_DIR   = "/tmp/gita_images"
 os.makedirs(CACHE_DIR, exist_ok=True)
-os.makedirs(IMG_DIR,   exist_ok=True)
 
-# Images with multiple mirror sources — tries each until one works
-IMAGE_SOURCES = {
-    "krishna_arjuna": [
-        "https://upload.wikimedia.org/wikipedia/commons/0/0e/Bhagavad_Gita_by_Raja_Ravi_Varma.jpg",
-        "https://imgs.search.brave.com/Krishna_Arjuna_Gita.jpg",
-        "https://www.gitasupersite.iitk.ac.in/images/krishna.jpg",
-    ],
-    "krishna_flute": [
-        "https://upload.wikimedia.org/wikipedia/commons/5/5e/Krishna_with_Flute.jpg",
-        "https://www.krishna.com/sites/default/files/krishna-flute.jpg",
-    ],
-    "kurukshetra": [
-        "https://upload.wikimedia.org/wikipedia/commons/6/62/Mahabharata_battle.jpg",
-        "https://www.mahabharata-resources.org/images/battle.jpg",
-    ],
-    "gita_teaching": [
-        "https://upload.wikimedia.org/wikipedia/commons/b/b5/Bhagavad-gita-2.jpg",
-        "https://www.gitasupersite.iitk.ac.in/images/gita2.jpg",
-    ],
+# Images: local assets first, then URL fallbacks, then PIL placeholder
+IMAGE_SETS = {
+    "krishna_arjuna": {
+        "local": "assets/krishna_arjuna.jpg",
+        "urls": [
+            "https://www.holy-bhagavad-gita.org/public/img/arjuna-and-krishna-on-chariot.jpg",
+            "https://i.pinimg.com/originals/2e/3d/85/2e3d859e3c27c2c39d1e03462f97d6e2.jpg",
+        ],
+        "label": "Krishna & Arjuna on the Battlefield of Kurukshetra",
+    },
+    "krishna_flute": {
+        "local": "assets/krishna_flute.jpg",
+        "urls": [
+            "https://www.holy-bhagavad-gita.org/public/img/krishna-flute.jpg",
+            "https://i.pinimg.com/originals/5f/0e/c3/5f0ec3e5a7a9e2a3c0e9d8b7f6a1d2e4.jpg",
+        ],
+        "label": "Lord Krishna",
+    },
+    "kurukshetra": {
+        "local": "assets/kurukshetra.jpg",
+        "urls": [
+            "https://www.holy-bhagavad-gita.org/public/img/kurukshetra.jpg",
+            "https://i.pinimg.com/originals/a1/b2/c3/a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6.jpg",
+        ],
+        "label": "The Battle of Kurukshetra",
+    },
+    "gita_teaching": {
+        "local": "assets/gita_teaching.jpg",
+        "urls": [
+            "https://www.holy-bhagavad-gita.org/public/img/krishna-teaching.jpg",
+            "https://i.pinimg.com/originals/f1/e2/d3/f1e2d3c4b5a6f7e8d9c0b1a2f3e4d5c6.jpg",
+        ],
+        "label": "Krishna's Divine Teaching",
+    },
 }
 
 
+def make_placeholder(label: str) -> Image.Image:
+    """Generate a beautiful dark golden PIL placeholder image."""
+    w, h = 800, 300
+    img  = Image.new("RGB", (w, h), (30, 12, 0))
+    draw = ImageDraw.Draw(img)
+    # Decorative border
+    for i, col in enumerate([(255,140,0),(200,100,0),(255,200,0)]):
+        draw.rectangle([i*2, i*2, w-1-i*2, h-1-i*2], outline=col, width=1)
+    # Om symbol area
+    draw.ellipse([w//2-60, h//2-55, w//2+60, h//2+55], outline=(255,215,0), width=2)
+    try:
+        font_big = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 32)
+        font_sm  = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 18)
+    except Exception:
+        font_big = ImageFont.load_default()
+        font_sm  = font_big
+    # Om text
+    om = "🕉️"
+    draw.text((w//2 - 20, h//2 - 20), om, fill=(255, 215, 0), font=font_big)
+    # Label below
+    bbox = draw.textbbox((0,0), label, font=font_sm)
+    tw = bbox[2] - bbox[0]
+    draw.text(((w - tw)//2, h - 50), label, fill=(255, 200, 100), font=font_sm)
+    return img
+
+
 @st.cache_resource
-def load_images():
-    """Download images once and cache them as PIL Image objects."""
-    imgs = {}
-    headers = {"User-Agent": "Mozilla/5.0 (compatible; GitaApp/1.0)"}
-    for name, urls in IMAGE_SOURCES.items():
-        for url in urls:
+def load_images() -> dict:
+    imgs    = {}
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0",
+        "Referer":    "https://www.google.com/",
+        "Accept":     "image/webp,image/apng,image/*,*/*;q=0.8",
+    }
+    for name, cfg in IMAGE_SETS.items():
+        # 1. Try local file
+        if os.path.exists(cfg["local"]):
             try:
-                r = requests.get(url, headers=headers, timeout=10)
+                imgs[name] = Image.open(cfg["local"]).convert("RGB")
+                continue
+            except Exception:
+                pass
+        # 2. Try each URL
+        for url in cfg["urls"]:
+            try:
+                r = requests.get(url, headers=headers, timeout=8)
                 if r.status_code == 200 and len(r.content) > 5000:
-                    img = Image.open(io.BytesIO(r.content)).convert("RGB")
-                    imgs[name] = img
+                    imgs[name] = Image.open(io.BytesIO(r.content)).convert("RGB")
                     break
             except Exception:
                 continue
+        # 3. PIL placeholder fallback
+        if name not in imgs:
+            imgs[name] = make_placeholder(cfg["label"])
     return imgs
 
 
 IMGS = load_images()
 
 
-def show_image(key: str, caption: str = "", width=None):
-    """Display a cached image or a friendly placeholder if unavailable."""
-    if key in IMGS:
-        st.image(IMGS[key], caption=caption, use_container_width=(width is None))
-    else:
-        st.markdown(
-            f"<div style='text-align:center; padding:20px; border:1px dashed #ff8c00; "
-            f"border-radius:10px; color:#ff8c00;'>🕉️ {caption}</div>",
-            unsafe_allow_html=True
-        )
+def show_image(key: str, caption: str = ""):
+    st.image(IMGS[key], caption=caption, use_container_width=True)
 
 
 # Voice priority — deep, gravelly, resonant male (Chinmayananda-style)
@@ -144,10 +188,9 @@ def build_chinmayananda_script(shloka: dict) -> str:
     meaning = shloka.get('meaning', '')
     raw     = clean_sanskrit(shloka.get('sanskrit', ''))
     lines   = [l.strip() for l in raw.splitlines() if l.strip()]
-    sanskrit_with_pauses = ' ... '.join(lines)
     return (
         f"Shloka. Chapter {ch}, Verse {v}. "
-        f"{sanskrit_with_pauses} ... "
+        f"{' ... '.join(lines)} ... "
         f"The Lord says ... {meaning} "
         f"Contemplate on this."
     )
@@ -163,12 +206,7 @@ def get_elevenlabs_audio(text: str, voice_id: str) -> bytes | None:
         payload = {
             "text": text,
             "model_id": "eleven_multilingual_v2",
-            "voice_settings": {
-                "stability": 0.85,
-                "similarity_boost": 0.80,
-                "style": 0.40,
-                "use_speaker_boost": True
-            }
+            "voice_settings": {"stability": 0.85, "similarity_boost": 0.80, "style": 0.40, "use_speaker_boost": True}
         }
         r = requests.post(url, json=payload, headers=headers, timeout=25)
         if r.status_code == 200 and is_valid_mp3(r.content):
@@ -182,51 +220,38 @@ def get_shloka_audio(shloka: dict) -> bytes | None:
     ch = shloka["chapter"]
     v  = shloka["verse"]
     cache_file = os.path.join(CACHE_DIR, f"{ch}_{v}.mp3")
-
     if os.path.exists(cache_file):
         data = open(cache_file, "rb").read()
         if is_valid_mp3(data):
             return data
         os.remove(cache_file)
-
     script = build_chinmayananda_script(shloka)
-
     for vid in GURU_VOICES:
         audio = get_elevenlabs_audio(script, vid)
         if audio:
-            with open(cache_file, "wb") as f:
-                f.write(audio)
+            with open(cache_file, "wb") as f: f.write(audio)
             return audio
-
     try:
         with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as tmp:
             tmp_path = tmp.name
-        async def _gen_shloka():
-            communicate = edge_tts.Communicate(
-                script, "en-IN-PrabhatNeural", rate="-25%", pitch="-10Hz"
-            )
-            await communicate.save(tmp_path)
-        asyncio.run(_gen_shloka())
-        with open(tmp_path, "rb") as f:
-            data = f.read()
+        async def _g():
+            await edge_tts.Communicate(script, "en-IN-PrabhatNeural", rate="-25%", pitch="-10Hz").save(tmp_path)
+        asyncio.run(_g())
+        data = open(tmp_path, "rb").read()
         os.unlink(tmp_path)
         if is_valid_mp3(data):
-            with open(cache_file, "wb") as f:
-                f.write(data)
+            with open(cache_file, "wb") as f: f.write(data)
             return data
     except Exception:
         pass
-
     try:
-        sanskrit_text = clean_sanskrit(shloka.get("sanskrit", ""))
-        tts = gTTS(text=sanskrit_text, lang="hi", slow=True)
+        tts = gTTS(text=clean_sanskrit(shloka.get("sanskrit", "")), lang="hi", slow=True)
         buf = io.BytesIO()
         tts.write_to_fp(buf)
         buf.seek(0)
         data = buf.read()
         if is_valid_mp3(data):
-            with open(cache_file, "wb") as f:
-                f.write(data)
+            with open(cache_file, "wb") as f: f.write(data)
             return data
     except Exception:
         pass
@@ -241,14 +266,10 @@ def make_guidance_voice(script: str) -> bytes | None:
     try:
         with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as tmp:
             tmp_path = tmp.name
-        async def _gen():
-            communicate = edge_tts.Communicate(
-                script, "en-IN-PrabhatNeural", rate="-20%", pitch="-8Hz"
-            )
-            await communicate.save(tmp_path)
-        asyncio.run(_gen())
-        with open(tmp_path, "rb") as f:
-            data = f.read()
+        async def _g():
+            await edge_tts.Communicate(script, "en-IN-PrabhatNeural", rate="-20%", pitch="-8Hz").save(tmp_path)
+        asyncio.run(_g())
+        data = open(tmp_path, "rb").read()
         os.unlink(tmp_path)
         return data
     except Exception:
@@ -298,13 +319,12 @@ with st.sidebar:
     st.markdown(f"**Total Shlokas:** {len(SHLOKAS)} across 18 chapters  \n**Themes:** 100+")
 
 
-# ── MAIN HEADER ────────────────────────────────────────────────────────────────
+# ── MAIN ────────────────────────────────────────────────────────────────────
 st.markdown("<h1 style='text-align:center; font-size:2.5rem;'>🕉️ Bhagavad Gita AI Therapist</h1>", unsafe_allow_html=True)
 st.markdown("<p style='text-align:center; color:#ffd700; font-size:17px;'>Share your struggles. Receive ancient wisdom. Find modern clarity.</p>", unsafe_allow_html=True)
-
-show_image("krishna_arjuna", "Krishna imparting wisdom to Arjuna — Raja Ravi Varma")
-
+show_image("krishna_arjuna", "Krishna imparting wisdom to Arjuna on the battlefield of Kurukshetra")
 st.markdown("---")
+
 c1, c2, c3, c4 = st.columns(4)
 c1.metric("📜 Shlokas", len(SHLOKAS))
 c2.metric("📖 Chapters", 18)
@@ -317,7 +337,6 @@ with col_a:
     show_image("kurukshetra", "⚔️ The Battle of Kurukshetra")
 with col_b:
     show_image("gita_teaching", "🕉️ Krishna's Divine Teaching")
-
 st.markdown("---")
 
 st.markdown("### 💛 How are you feeling right now?")
@@ -390,13 +409,8 @@ if st.session_state.result:
                 audio = get_shloka_audio(s)
             if audio:
                 st.session_state.voice_audio[vkey] = audio
-
         if vkey in st.session_state.voice_audio:
-            st.markdown(
-                f"<p style='color:#ffd700; font-size:13px; margin:8px 0 2px 0;'>"
-                f"🕉️ Shloka Recitation — Ch {s['chapter']}, Verse {s['verse']}</p>",
-                unsafe_allow_html=True
-            )
+            st.markdown(f"<p style='color:#ffd700; font-size:13px; margin:8px 0 2px 0;'>🕉️ Shloka Recitation — Ch {s['chapter']}, Verse {s['verse']}</p>", unsafe_allow_html=True)
             st.audio(st.session_state.voice_audio[vkey], format="audio/mp3")
         else:
             st.caption("⚠️ Audio unavailable for this verse.")
@@ -405,9 +419,7 @@ if st.session_state.result:
     guidance_text = result['guidance']
     st.markdown(f"""
     <div class='guidance-box'>
-        <p style='color:#e0e0e0; line-height:1.9; font-size:15px;'>
-            {guidance_text.replace(chr(10), '<br>')}
-        </p>
+        <p style='color:#e0e0e0; line-height:1.9; font-size:15px;'>{guidance_text.replace(chr(10), '<br>')}</p>
     </div>
     """, unsafe_allow_html=True)
 

@@ -2,12 +2,25 @@
 
 > *Share your struggles. Receive ancient wisdom. Find modern clarity.*
 
-An AI-powered Streamlit app that listens to your emotional struggles and responds with relevant Bhagavad Gita shlokas + warm, practical guidance powered by **Groq AI**.
+<div align="center">
 
 [![Streamlit App](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://bhagavad-gita-therapist.streamlit.app/)
 [![CI](https://github.com/jyotheeswar012-max/bhagavad-gita-therapist/actions/workflows/ci.yml/badge.svg)](https://github.com/jyotheeswar012-max/bhagavad-gita-therapist/actions/workflows/ci.yml)
+[![GitHub Stars](https://img.shields.io/github/stars/jyotheeswar012-max/bhagavad-gita-therapist?style=social)](https://github.com/jyotheeswar012-max/bhagavad-gita-therapist/stargazers)
+[![GitHub Forks](https://img.shields.io/github/forks/jyotheeswar012-max/bhagavad-gita-therapist?style=social)](https://github.com/jyotheeswar012-max/bhagavad-gita-therapist/network/members)
+[![GitHub Issues](https://img.shields.io/github/issues/jyotheeswar012-max/bhagavad-gita-therapist?color=orange)](https://github.com/jyotheeswar012-max/bhagavad-gita-therapist/issues)
+[![Last Commit](https://img.shields.io/github/last-commit/jyotheeswar012-max/bhagavad-gita-therapist?color=brightgreen)](https://github.com/jyotheeswar012-max/bhagavad-gita-therapist/commits/main)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-blue?logo=python&logoColor=white)](https://www.python.org/)
+[![Made with ❤️](https://img.shields.io/badge/Made%20with-%E2%9D%A4%EF%B8%8F-red)](https://github.com/jyotheeswar012-max/bhagavad-gita-therapist)
+
+</div>
+
+---
 
 🌐 **Live Demo:** [bhagavad-gita-therapist.streamlit.app](https://bhagavad-gita-therapist.streamlit.app/)
+
+An AI-powered Streamlit app that listens to your emotional struggles and responds with relevant Bhagavad Gita shlokas + warm, practical guidance powered by **Groq AI** — now in **English, हिंदी & తెలుగు**.
 
 ---
 
@@ -25,33 +38,53 @@ An AI-powered Streamlit app that listens to your emotional struggles and respond
 
 ---
 
-## 🔒 Privacy Policy
+## ✨ Features
 
-Your privacy is important. Here is exactly what this app does and does **not** do with your data:
-
-| What | Policy |
-|------|--------|
-| **User inputs (your text)** | Sent to Groq API for AI inference only. **Not stored** by this app. |
-| **Groq API data handling** | Subject to [Groq's Privacy Policy](https://groq.com/privacy-policy/). Groq does not use API inputs for model training by default. |
-| **Session data** | Stored temporarily in your browser session only. Cleared when you close the tab. |
-| **No user accounts** | This app collects no personal information — no name, email, or login required. |
-| **No analytics tracking** | No third-party analytics (e.g. Google Analytics) are used. |
-| **Audio generation** | Text is sent to ElevenLabs / Edge TTS for voice synthesis only, not stored. |
-
-> If you are concerned about sharing sensitive personal information, we recommend keeping your inputs general (e.g. "I feel anxious" rather than personally identifying details).
+| Feature | Details |
+|---|---|
+| 🌐 **Multilingual** | Full UI + AI responses in English, हिंदी, తెలుగు |
+| 💛 **12 Emotion Chips** | Anxious, Heartbroken, Angry, Lost, Lonely & more — in all 3 languages |
+| 📜 **Smart Shloka Matcher** | TF-IDF cosine similarity across 100+ mapped themes |
+| 🤖 **Groq AI Guidance** | Warm, empathetic, non-preachy modern interpretations |
+| ❤️ **Favourite Shlokas** | Save, view & export your favourite verses |
+| 📊 **Owner Analytics** | PIN-gated usage stats: top themes, languages, daily queries |
+| 🎙️ **Voice Recitation** | ElevenLabs → Edge TTS → gTTS fallback chain |
+| 📚 **Chapter Browser** | Explore all 18 chapters from the sidebar |
+| 💬 **Session History** | All turns logged with feedback & timestamps |
+| 📥 **Export** | Download session as Text or PDF |
+| 🎵 **Background Music** | Ambient spiritual audio while you reflect |
 
 ---
 
-## ✨ Features
+## 🌐 Multilingual Support
 
-- 💛 **12 quick-emotion buttons** — Anxious, Heartbroken, Demotivated, Angry, Fearful, Lost, Self-doubt, Distracted, Lonely, Jealous, Burnout, Rage
-- 📜 **Smart Shloka Matcher** — Finds the most relevant shlokas for your situation from 100+ mapped themes
-- 🤖 **Groq AI Guidance** — Warm, empathetic, non-preachy modern interpretations
-- 🎭 **Sanskrit + Transliteration + Meaning** — Full shloka display
-- 🎨 **Beautiful dark UI** — Saffron & gold themed, inspired by Indian aesthetics
-- ⚡ **Works without API key** — Graceful fallback responses built-in
-- 🔊 **Voice recitation** — ElevenLabs / Edge TTS / gTTS fallback chain
-- 📚 **Browse all 18 chapters** — Sidebar chapter explorer
+The app fully supports 3 languages — switchable live from the sidebar:
+
+```
+🌐 English  |  🇮🇳 हिंदी  |  🌺 తెలుగు
+```
+
+All UI labels, emotion chips, buttons, headings, and **AI responses** switch to the chosen language instantly.
+
+---
+
+## ❤️ Favourite Shlokas
+
+Click **❤️ Save Shloka** on any displayed verse to save it. View and export all favourites from the sidebar as a `.json` file anytime.
+
+---
+
+## 📊 Owner Analytics (Privacy-First)
+
+No third-party trackers. No user data stored. Only aggregate counts logged locally:
+
+- 🔥 Top requested themes
+- 🌐 Language usage breakdown
+- 📅 Daily query counts (last 7 days)
+- 💭 Most common emotions
+
+**Access:** Enter your `OWNER_PIN` secret in the sidebar Analytics section.
+Set it in Streamlit Cloud: `Settings → Secrets → OWNER_PIN = "yourpin"`
 
 ---
 
@@ -76,24 +109,26 @@ streamlit run app.py
 
 ---
 
+## 🔒 Privacy Policy
+
+| What | Policy |
+|------|--------|
+| **User inputs** | Sent to Groq API for inference only. **Not stored** by this app. |
+| **Groq API** | Subject to [Groq's Privacy Policy](https://groq.com/privacy-policy/). Does not train on API inputs by default. |
+| **Session data** | Browser session only. Cleared when tab closes. |
+| **Analytics** | Only aggregate theme/language counts. Zero personal data. |
+| **No accounts** | No name, email, or login required. |
+
+---
+
 ## 🧪 Testing & CI/CD
 
-This project uses **pytest** and **GitHub Actions** for automated testing.
-
 ```bash
-# Run tests locally
 pip install pytest
 pytest tests/ -v
 ```
 
-Tests cover:
-- ✅ All 18 chapters present in the database
-- ✅ Every shloka has required fields (sanskrit, meaning, themes, etc.)
-- ✅ `get_shloka()`, `get_chapter()`, `search_by_theme()` lookup functions
-- ✅ Image fallback logic (PIL placeholder generation)
-- ✅ Network failure graceful degradation
-
-CI runs automatically on every push and pull request.
+CI runs automatically on every push and pull request via GitHub Actions.
 
 ---
 
@@ -121,6 +156,27 @@ CI runs automatically on every push and pull request.
 ![Python](https://img.shields.io/badge/Python-3776AB?style=flat-square&logo=python&logoColor=white)
 ![Streamlit](https://img.shields.io/badge/Streamlit-FF4B4B?style=flat-square&logo=streamlit&logoColor=white)
 ![Groq AI](https://img.shields.io/badge/Groq_AI-F55036?style=flat-square&logo=groq&logoColor=white)
+![ElevenLabs](https://img.shields.io/badge/ElevenLabs-000000?style=flat-square&logoColor=white)
+![GitHub Actions](https://img.shields.io/badge/GitHub_Actions-2088FF?style=flat-square&logo=github-actions&logoColor=white)
+
+---
+
+## 🤝 Contributing
+
+Contributions are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+
+- 📜 **Add shlokas** — great first contribution!
+- 🌐 **Add languages** — Kannada, Tamil, Malayalam welcome
+- 🐛 **Report bugs** — use the [Bug Report template](https://github.com/jyotheeswar012-max/bhagavad-gita-therapist/issues/new?template=bug_report.md)
+- ✨ **Request features** — use the [Feature Request template](https://github.com/jyotheeswar012-max/bhagavad-gita-therapist/issues/new?template=feature_request.md)
+
+---
+
+## ⭐ Show Your Support
+
+If this project helped you or someone you know, please consider giving it a ⭐ star on GitHub — it helps more people discover ancient wisdom through modern technology. 🙏
+
+[![Star this repo](https://img.shields.io/github/stars/jyotheeswar012-max/bhagavad-gita-therapist?style=for-the-badge&logo=github)](https://github.com/jyotheeswar012-max/bhagavad-gita-therapist/stargazers)
 
 ---
 

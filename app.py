@@ -78,9 +78,6 @@ st.markdown("""
   .hero-h1 em { font-style:italic;font-weight:400;color:#e8d5b0; }
   .hero-sub { font-size:15px;color:#9a8060;line-height:1.75;margin:22px 0 36px 0;max-width:480px;font-weight:300; }
   .cta-row { display:flex;align-items:flex-start;gap:22px;margin-bottom:44px;flex-wrap:wrap; }
-  .chips-label { font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:#6a5030;margin-bottom:14px;font-weight:400; }
-  .chips-row { display:flex;flex-wrap:wrap;gap:10px; }
-  .chip { border:1px solid #3a2010;border-radius:50px;padding:8px 18px;font-size:13px;color:#c8a878;background:rgba(255,255,255,0.02);cursor:pointer;font-family:'Inter',sans-serif; }
   .krishna-card { position:relative;border-radius:24px;overflow:hidden;background:#1a0800;box-shadow:0 32px 80px rgba(0,0,0,0.7),0 0 0 1px rgba(255,180,50,0.12); }
   .krishna-card img { width:100%;display:block;border-radius:24px;object-fit:cover;max-height:520px; }
   .verse-overlay { position:absolute;bottom:0;left:0;right:0;background:linear-gradient(0deg,rgba(5,2,0,0.95) 0%,rgba(5,2,0,0.6) 70%,transparent 100%);padding:28px 24px 24px 24px;border-radius:0 0 24px 24px; }
@@ -493,7 +490,6 @@ with st.sidebar:
 
 
 # ── HERO ──
-# 5 most iconic / widely-quoted Gita shlokas for the mini-chip
 FEATURED_VERSES = [
     {
         "sanskrit": "कर्मण्येवाधिकारस्ते मा फलेषु कदाचन ।",
@@ -524,7 +520,6 @@ FEATURED_VERSES = [
 import hashlib
 hour_seed = int(hashlib.md5(datetime.now().strftime("%Y%m%d%H").encode()).hexdigest(), 16)
 featured = FEATURED_VERSES[hour_seed % len(FEATURED_VERSES)]
-# Second verse for the image overlay (different from the mini-chip)
 overlay = FEATURED_VERSES[(hour_seed + 1) % len(FEATURED_VERSES)]
 krishna_b64 = img_to_b64(IMGS["krishna_flute"])
 L = LABELS[st.session_state.language]
@@ -542,10 +537,6 @@ st.markdown(f"""
         <p class="hvc-english">{featured['english']}</p>
         <p class="hvc-ref">— {featured['ref']}</p>
       </div>
-    </div>
-    <p class="chips-label">{L['feeling_label']}</p>
-    <div class="chips-row">
-      {''.join(f"<span class='chip'>{e}</span>" for e in L['emotions'].keys())}
     </div>
     <div class="stats-bar">
       <div class="stat-item"><div class="stat-num">{len(SHLOKAS)}</div><div class="stat-label">Shlokas</div></div>

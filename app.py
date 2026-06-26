@@ -19,6 +19,7 @@ st.set_page_config(
     page_title="Bhagavad Gita AI Therapist",
     page_icon="🕉️",
     layout="wide",
+    initial_sidebar_state="expanded",
 )
 
 st.markdown("""
@@ -36,12 +37,26 @@ st.markdown("""
   #MainMenu, footer, header { visibility: hidden; }
   .stDeployButton { display: none; }
 
+  /* ── Force sidebar always visible ── */
   div[data-testid="stSidebar"] {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
     background: #0a0300 !important;
     border-right: 1px solid #2a1200 !important;
+    min-width: 240px !important;
+  }
+  div[data-testid="stSidebar"][aria-expanded="false"] {
+    width: 300px !important;
+    transform: none !important;
   }
   div[data-testid="stSidebar"] * { color: #d4a96a !important; }
   div[data-testid="stSidebar"] h2 { color: #ffd700 !important; font-family: 'Playfair Display', serif !important; }
+  /* Show the sidebar toggle button */
+  button[data-testid="collapsedControl"] {
+    display: flex !important;
+    visibility: visible !important;
+  }
 
   .hero-wrap {
     min-height: 100vh;
@@ -246,7 +261,6 @@ st.markdown("""
 CACHE_DIR = "/tmp/gita_audio"
 os.makedirs(CACHE_DIR, exist_ok=True)
 
-# ── Hero image: assets/krishna-flute.jpg (431KB high-quality golden Krishna) ──
 HERO_IMG_LOCAL  = "assets/krishna-flute.jpg"
 HERO_IMG_URL    = "https://raw.githubusercontent.com/jyotheeswar012-max/bhagavad-gita-therapist/main/assets/krishna-flute.jpg"
 
@@ -254,9 +268,7 @@ IMAGE_SETS = {
     "krishna_arjuna": {
         "local": "assets/krishna_arjuna.jpg",
         "min_size": 5000,
-        "urls": [
-            "https://www.holy-bhagavad-gita.org/public/img/arjuna-and-krishna-on-chariot.jpg",
-        ],
+        "urls": ["https://www.holy-bhagavad-gita.org/public/img/arjuna-and-krishna-on-chariot.jpg"],
         "label": "Krishna & Arjuna",
     },
     "krishna_flute": {
@@ -271,17 +283,13 @@ IMAGE_SETS = {
     "kurukshetra": {
         "local": "assets/kurukshetra.jpg",
         "min_size": 5000,
-        "urls": [
-            "https://www.holy-bhagavad-gita.org/public/img/kurukshetra.jpg",
-        ],
+        "urls": ["https://www.holy-bhagavad-gita.org/public/img/kurukshetra.jpg"],
         "label": "Kurukshetra",
     },
     "gita_teaching": {
         "local": "assets/gita_teaching.jpg",
         "min_size": 5000,
-        "urls": [
-            "https://www.holy-bhagavad-gita.org/public/img/krishna-teaching.jpg",
-        ],
+        "urls": ["https://www.holy-bhagavad-gita.org/public/img/krishna-teaching.jpg"],
         "label": "Gita Teaching",
     },
 }
@@ -311,7 +319,6 @@ def load_images() -> dict:
     }
     for name, cfg in IMAGE_SETS.items():
         min_size = cfg.get("min_size", 5000)
-        # Use local file only if large enough
         if os.path.exists(cfg["local"]):
             try:
                 if os.path.getsize(cfg["local"]) >= min_size:
@@ -319,7 +326,6 @@ def load_images() -> dict:
                     continue
             except Exception:
                 pass
-        # Fetch from URLs
         for url in cfg["urls"]:
             try:
                 r = requests.get(url, headers=headers, timeout=15)

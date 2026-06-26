@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>🕉️ Bhagavad Gita AI Therapist</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🕉️</text></svg>" />
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400;1,700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --saffron:   #e87000;
+      --gold:      #ffd700;
+      --gold-light:#fff3a0;
+      --maroon:    #4a0010;
+      --deep-bg:   #0d0500;
+      --card-bg:   #1a0800;
+      --lotus:     #e8607a;
+      --text:      #f5e6cc;
+      --muted:     #9a8060;
+      --border:    rgba(255,180,50,0.18);
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--deep-bg);
+      font-family: 'Inter', sans-serif;
+      color: var(--text);
+      overflow-x: hidden;
+    }
+
+    /* ── Starfield bg ── */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background:
+        radial-gradient(ellipse at 20% 20%, rgba(74,0,16,0.45) 0%, transparent 55%),
+        radial-gradient(ellipse at 80% 80%, rgba(232,112,0,0.12) 0%, transparent 50%),
+        radial-gradient(ellipse at 50% 50%, rgba(13,5,0,1) 0%, transparent 100%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* ── NAV ── */
+    nav {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 18px 6vw;
+      background: rgba(13,5,0,0.85);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+    }
+    .nav-brand {
+      font-family: 'Playfair Display', serif;
+      font-size: 1.2rem;
+      color: var(--gold);
+      letter-spacing: 0.03em;
+      text-decoration: none;
+    }
+    .nav-links { display: flex; gap: 28px; align-items: center; }
+    .nav-links a {
+      color: var(--muted);
+      font-size: 13px;
+      text-decoration: none;
+      letter-spacing: 0.04em;
+      transition: color 0.2s;
+    }
+    .nav-links a:hover { color: var(--gold); }
+    .nav-cta {
+      background: linear-gradient(135deg, var(--saffron), var(--gold));
+      color: #1a0800 !important;
+      font-weight: 600 !important;
+      padding: 9px 22px;
+      border-radius: 50px;
+      font-size: 13px !important;
+    }
+
+    /* ── HERO ── */
+    .hero {
+      position: relative;
+      z-index: 1;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 120px 6vw 80px;
+    }
+    .hero-om {
+      font-size: 4rem;
+      margin-bottom: 20px;
+      animation: pulse 3s ease-in-out infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); opacity: 0.9; }
+      50%       { transform: scale(1.08); opacity: 1; }
+    }
+    .hero-eyebrow {
+      font-size: 11px;
+      letter-spacing: 0.28em;
+      text-transform: uppercase;
+      color: #8a6030;
+      margin-bottom: 20px;
+    }
+    .hero-h1 {
+      font-family: 'Playfair Display', serif;
+      font-size: clamp(2.6rem, 6vw, 5rem);
+      font-weight: 700;
+      color: var(--text);
+      line-height: 1.12;
+      margin-bottom: 12px;
+    }
+    .hero-h1 span {
+      background: linear-gradient(135deg, var(--saffron), var(--gold));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .hero-sub {
+      font-size: 17px;
+      color: var(--muted);
+      max-width: 540px;
+      line-height: 1.8;
+      margin: 20px auto 40px;
+      font-weight: 300;
+    }
+    .hero-btns { display: flex; gap: 16px; flex-wrap: wrap; justify-content: center; margin-bottom: 60px; }
+    .btn-primary {
+      background: linear-gradient(135deg, var(--saffron), var(--gold));
+      color: #1a0800;
+      font-weight: 700;
+      font-size: 15px;
+      padding: 15px 36px;
+      border-radius: 50px;
+      text-decoration: none;
+      transition: opacity 0.2s, transform 0.2s;
+      letter-spacing: 0.02em;
+    }
+    .btn-primary:hover { opacity: 0.88; transform: translateY(-2px); }
+    .btn-ghost {
+      border: 1px solid rgba(255,180,50,0.3);
+      color: var(--muted);
+      font-size: 14px;
+      padding: 14px 30px;
+      border-radius: 50px;
+      text-decoration: none;
+      transition: border-color 0.2s, color 0.2s;
+    }
+    .btn-ghost:hover { border-color: var(--gold); color: var(--gold); }
+
+    /* ── Verse card in hero ── */
+    .hero-verse {
+      background: linear-gradient(135deg, rgba(74,0,16,0.5), rgba(232,112,0,0.1));
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 28px 36px;
+      max-width: 560px;
+      margin: 0 auto;
+      backdrop-filter: blur(8px);
+    }
+    .verse-text {
+      font-family: 'Playfair Display', serif;
+      font-size: 1.05rem;
+      color: #f5e6cc;
+      line-height: 1.75;
+      margin-bottom: 10px;
+      font-style: italic;
+    }
+    .verse-ref { font-size: 12px; color: #8a6030; letter-spacing: 0.06em; }
+
+    /* ── STATS ── */
+    .stats {
+      position: relative; z-index: 1;
+      display: flex;
+      justify-content: center;
+      gap: 60px;
+      flex-wrap: wrap;
+      padding: 50px 6vw;
+      border-top: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+      background: rgba(26,8,0,0.5);
+    }
+    .stat { text-align: center; }
+    .stat-num {
+      font-family: 'Playfair Display', serif;
+      font-size: 2.5rem;
+      font-weight: 700;
+      background: linear-gradient(135deg, var(--saffron), var(--gold));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      line-height: 1;
+    }
+    .stat-label { font-size: 11px; color: #6a5030; text-transform: uppercase; letter-spacing: 0.12em; margin-top: 6px; }
+
+    /* ── SECTIONS ── */
+    section {
+      position: relative; z-index: 1;
+      padding: 80px 6vw;
+    }
+    .section-eyebrow {
+      font-size: 11px;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: #8a5020;
+      margin-bottom: 12px;
+    }
+    .section-title {
+      font-family: 'Playfair Display', serif;
+      font-size: clamp(1.8rem, 3vw, 2.8rem);
+      color: var(--text);
+      margin-bottom: 14px;
+      font-weight: 700;
+    }
+    .section-sub { font-size: 15px; color: var(--muted); max-width: 540px; line-height: 1.8; font-weight: 300; }
+
+    /* ── FEATURES GRID ── */
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 20px;
+      margin-top: 44px;
+    }
+    .feature-card {
+      background: linear-gradient(135deg, rgba(45,18,0,0.85), rgba(74,30,0,0.6));
+      border: 1px solid rgba(255,140,0,0.18);
+      border-radius: 18px;
+      padding: 28px 24px;
+      transition: transform 0.2s, border-color 0.2s;
+    }
+    .feature-card:hover { transform: translateY(-4px); border-color: rgba(255,180,50,0.4); }
+    .feature-icon { font-size: 2rem; margin-bottom: 14px; }
+    .feature-title { font-family: 'Playfair Display', serif; font-size: 1.1rem; color: var(--gold); margin-bottom: 8px; font-weight: 700; }
+    .feature-desc { font-size: 13px; color: #a09070; line-height: 1.7; }
+
+    /* ── CHAKRA DIVIDER ── */
+    .chakra-divider {
+      text-align: center;
+      padding: 20px 0;
+      font-size: 1.5rem;
+      opacity: 0.3;
+      letter-spacing: 12px;
+    }
+
+    /* ── SHLOKAS TABLE ── */
+    .shlokas-section { background: rgba(10,4,0,0.6); }
+    .table-wrap { overflow-x: auto; margin-top: 36px; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 14px;
+    }
+    thead tr { border-bottom: 1px solid rgba(255,140,0,0.25); }
+    thead th {
+      text-align: left;
+      padding: 12px 16px;
+      color: var(--gold);
+      font-weight: 600;
+      font-size: 12px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+    tbody tr {
+      border-bottom: 1px solid rgba(255,140,0,0.07);
+      transition: background 0.15s;
+    }
+    tbody tr:hover { background: rgba(232,112,0,0.06); }
+    tbody td { padding: 12px 16px; color: #c8a878; }
+    tbody td:first-child { color: var(--gold); font-weight: 600; font-family: 'Playfair Display', serif; }
+
+    /* ── TECH STACK ── */
+    .badges { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 28px; }
+    .badge {
+      padding: 8px 18px;
+      border-radius: 50px;
+      font-size: 13px;
+      font-weight: 500;
+      letter-spacing: 0.02em;
+    }
+    .badge-python  { background: rgba(55,118,171,0.2);  color: #7ab4f5; border: 1px solid rgba(55,118,171,0.3); }
+    .badge-stream  { background: rgba(255,75,75,0.15);  color: #ff9090; border: 1px solid rgba(255,75,75,0.25); }
+    .badge-groq    { background: rgba(245,80,54,0.15);  color: #ffaa88; border: 1px solid rgba(245,80,54,0.25); }
+    .badge-tts     { background: rgba(100,180,100,0.15);color: #90e090; border: 1px solid rgba(100,180,100,0.25); }
+    .badge-pil     { background: rgba(180,100,255,0.15);color: #c090ff; border: 1px solid rgba(180,100,255,0.25); }
+
+    /* ── QUICK START ── */
+    .code-block {
+      background: rgba(0,0,0,0.5);
+      border: 1px solid rgba(255,140,0,0.2);
+      border-radius: 14px;
+      padding: 24px 28px;
+      margin-top: 28px;
+      font-family: 'Courier New', monospace;
+      font-size: 14px;
+      color: #d4c8a0;
+      line-height: 2;
+      overflow-x: auto;
+    }
+    .code-block .cmt { color: #6a5030; }
+    .code-block .cmd { color: var(--saffron); }
+
+    /* ── DISCLAIMER ── */
+    .disclaimer {
+      background: rgba(26,10,0,0.8);
+      border: 1px solid rgba(255,107,53,0.3);
+      border-left: 4px solid #ff6b35;
+      border-radius: 14px;
+      padding: 22px 26px;
+      margin-top: 36px;
+    }
+    .disclaimer h3 { color: #ff6b35; font-size: 14px; margin-bottom: 10px; letter-spacing: 0.04em; }
+    .disclaimer p { color: #c09070; font-size: 13px; line-height: 1.8; }
+    .disclaimer a { color: var(--saffron); }
+    .crisis-links { margin-top: 12px; display: flex; flex-wrap: wrap; gap: 10px; }
+    .crisis-link {
+      background: rgba(255,107,53,0.1);
+      border: 1px solid rgba(255,107,53,0.2);
+      border-radius: 8px;
+      padding: 6px 14px;
+      font-size: 12px;
+      color: #ffaa80;
+      text-decoration: none;
+    }
+
+    /* ── FOOTER ── */
+    footer {
+      position: relative; z-index: 1;
+      background: #080300;
+      border-top: 1px solid var(--border);
+      padding: 50px 6vw 30px;
+      text-align: center;
+    }
+    .footer-om { font-size: 2.5rem; margin-bottom: 14px; opacity: 0.7; }
+    .footer-verse {
+      font-family: 'Playfair Display', serif;
+      font-size: 1.1rem;
+      color: #8a6030;
+      font-style: italic;
+      margin-bottom: 24px;
+    }
+    .footer-links { display: flex; justify-content: center; gap: 28px; flex-wrap: wrap; margin-bottom: 24px; }
+    .footer-links a { color: #5a4020; font-size: 13px; text-decoration: none; transition: color 0.2s; }
+    .footer-links a:hover { color: var(--gold); }
+    .footer-copy { font-size: 12px; color: #3a2810; }
+
+    /* ── MOBILE ── */
+    @media (max-width: 700px) {
+      .nav-links { display: none; }
+      .hero-h1 { font-size: 2.2rem; }
+      .stats { gap: 30px; }
+      .stat-num { font-size: 2rem; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <a class="nav-brand" href="#">🕉️ Gita Therapist</a>
+  <div class="nav-links">
+    <a href="#features">Features</a>
+    <a href="#shlokas">Shlokas</a>
+    <a href="#start">Quick Start</a>
+    <a href="https://bhagavad-gita-therapist.streamlit.app/" target="_blank" class="nav-cta">Open App ↗</a>
+  </div>
+</nav>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="hero-om">🕉️</div>
+  <p class="hero-eyebrow">· 5,000 years of wisdom · one conversation ·</p>
+  <h1 class="hero-h1">
+    Whisper your sorrow.<br>
+    <span>Hear the Gita reply.</span>
+  </h1>
+  <p class="hero-sub">
+    An AI guide steeped in the Bhagavad Gita responds to your deepest struggles
+    with timeless shlokas, warm translations, and a path forward.
+  </p>
+  <div class="hero-btns">
+    <a href="https://bhagavad-gita-therapist.streamlit.app/" target="_blank" class="btn-primary">Begin a Conversation →</a>
+    <a href="#features" class="btn-ghost">Explore Features</a>
+  </div>
+  <div class="hero-verse">
+    <p class="verse-text">"You have a right to perform your prescribed duties,<br>but you are not entitled to the fruits of your actions."</p>
+    <p class="verse-ref">— Bhagavad Gita 2.47</p>
+  </div>
+</section>
+
+<!-- STATS -->
+<div class="stats">
+  <div class="stat"><div class="stat-num">700</div><div class="stat-label">Verses in the Gita</div></div>
+  <div class="stat"><div class="stat-num">18</div><div class="stat-label">Chapters</div></div>
+  <div class="stat"><div class="stat-num">100+</div><div class="stat-label">Emotion Themes</div></div>
+  <div class="stat"><div class="stat-num">3</div><div class="stat-label">Voice Engines</div></div>
+  <div class="stat"><div class="stat-num">Free</div><div class="stat-label">Always</div></div>
+</div>
+
+<!-- FEATURES -->
+<section id="features">
+  <p class="section-eyebrow">· what it does ·</p>
+  <h2 class="section-title">Ancient Wisdom, Modern Clarity</h2>
+  <p class="section-sub">Share your emotion — get the exact shloka Krishna would have told you, translated and explained for today.</p>
+  <div class="features-grid">
+    <div class="feature-card">
+      <div class="feature-icon">💛</div>
+      <div class="feature-title">12 Quick Emotion Buttons</div>
+      <div class="feature-desc">Anxious, Heartbroken, Demotivated, Angry, Fearful, Lost, Self-Doubt, Distracted, Lonely, Jealous, Burnt Out, Rage — one tap to start.</div>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">📜</div>
+      <div class="feature-title">Smart Shloka Matcher</div>
+      <div class="feature-desc">Groq AI reads your message and finds the most relevant verses from 100+ mapped emotion-to-shloka themes.</div>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">🤖</div>
+      <div class="feature-title">Groq AI Guidance</div>
+      <div class="feature-desc">Warm, empathetic, non-preachy interpretations that connect 5,000-year-old wisdom to your exact situation.</div>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">🔊</div>
+      <div class="feature-title">Voice Recitation</div>
+      <div class="feature-desc">Hear each verse spoken aloud via ElevenLabs, Edge TTS, or gTTS — a 3-layer fallback so audio always works.</div>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">📚</div>
+      <div class="feature-title">All 18 Chapters</div>
+      <div class="feature-desc">Browse every chapter in the sidebar. Read shlokas with Sanskrit, transliteration and meaning at any time.</div>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">🔒</div>
+      <div class="feature-title">Zero Data Storage</div>
+      <div class="feature-desc">No accounts, no logs. Inputs go to Groq for inference only. Session clears when you close the tab.</div>
+    </div>
+  </div>
+</section>
+
+<div class="chakra-divider">· · · · ·</div>
+
+<!-- SHLOKAS -->
+<section id="shlokas" class="shlokas-section">
+  <p class="section-eyebrow">· scripture ·</p>
+  <h2 class="section-title">Key Shlokas Covered</h2>
+  <p class="section-sub">A sample of the wisdom mapped to modern emotional struggles.</p>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Chapter · Verse</th><th>Themes</th></tr></thead>
+      <tbody>
+        <tr><td>2 · 47</td><td>Anxiety, Stress, Career, Exam pressure</td></tr>
+        <tr><td>2 · 14</td><td>Sadness, Grief, Heartbreak, Depression</td></tr>
+        <tr><td>6 · 5</td><td>Self-doubt, Low confidence, Mindset</td></tr>
+        <tr><td>18 · 66</td><td>Fear, Guilt, Overwhelm, Helplessness</td></tr>
+        <tr><td>2 · 20</td><td>Loss, Death, Existential questions</td></tr>
+        <tr><td>3 · 27</td><td>Ego, Anger, Jealousy, Attachment</td></tr>
+        <tr><td>6 · 35</td><td>Distraction, Focus, Discipline, Study</td></tr>
+        <tr><td>4 · 7</td><td>Injustice, Moral dilemma, Ethics</td></tr>
+        <tr><td>9 · 22</td><td>Faith, Hope, Spiritual support</td></tr>
+        <tr><td>2 · 3</td><td>Weakness, Giving up, Courage</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<div class="chakra-divider">· · · · ·</div>
+
+<!-- QUICK START -->
+<section id="start">
+  <p class="section-eyebrow">· setup ·</p>
+  <h2 class="section-title">Run It Locally</h2>
+  <p class="section-sub">Up and running in under 2 minutes.</p>
+  <div class="code-block">
+    <span class="cmt"># Clone the repo</span><br>
+    <span class="cmd">git clone</span> https://github.com/jyotheeswar012-max/bhagavad-gita-therapist<br>
+    <span class="cmd">cd</span> bhagavad-gita-therapist<br><br>
+    <span class="cmt"># Install dependencies</span><br>
+    <span class="cmd">pip install</span> -r requirements.txt<br><br>
+    <span class="cmt"># Add your Groq API key</span><br>
+    <span class="cmd">cp</span> .env.example .env<br><br>
+    <span class="cmt"># Launch</span><br>
+    <span class="cmd">streamlit run</span> app.py
+  </div>
+
+  <!-- Tech Stack -->
+  <p style="margin-top:40px;font-size:11px;letter-spacing:0.2em;text-transform:uppercase;color:#6a5030;margin-bottom:14px;">· tech stack ·</p>
+  <div class="badges">
+    <span class="badge badge-python">🐍 Python 3.11+</span>
+    <span class="badge badge-stream">⚡ Streamlit</span>
+    <span class="badge badge-groq">🤖 Groq AI (LLaMA 3)</span>
+    <span class="badge badge-tts">🔊 ElevenLabs / Edge TTS / gTTS</span>
+    <span class="badge badge-pil">🖼️ Pillow</span>
+  </div>
+
+  <!-- Disclaimer -->
+  <div class="disclaimer">
+    <h3>⚠️ Mental Health Disclaimer</h3>
+    <p>
+      This app offers <strong>spiritual reflection</strong> inspired by the Bhagavad Gita.
+      It is <strong>not a substitute</strong> for professional psychological or medical advice.
+      If you are in crisis, please reach out:
+    </p>
+    <div class="crisis-links">
+      <a class="crisis-link" href="tel:9152987821">🇮🇳 iCall: 9152987821</a>
+      <a class="crisis-link" href="tel:18602662345">🇮🇳 Vandrevala: 1860-2662-345</a>
+      <a class="crisis-link" href="tel:988">🇺🇸 988 Lifeline</a>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div class="footer-om">🕉️</div>
+  <p class="footer-verse">"✨ Tat Tvam Asi — Thou Art That ✨"</p>
+  <div class="footer-links">
+    <a href="https://github.com/jyotheeswar012-max/bhagavad-gita-therapist" target="_blank">GitHub</a>
+    <a href="https://bhagavad-gita-therapist.streamlit.app/" target="_blank">Live App</a>
+    <a href="https://github.com/jyotheeswar012-max/bhagavad-gita-therapist/issues" target="_blank">Issues</a>
+    <a href="https://groq.com/privacy-policy/" target="_blank">Privacy</a>
+  </div>
+  <p class="footer-copy">MIT License © 2026 Jyotheeswar Reddy · Built with ❤️ using Streamlit &amp; Groq AI</p>
+</footer>
+
+</body>
+</html>

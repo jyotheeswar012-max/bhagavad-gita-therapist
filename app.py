@@ -38,7 +38,6 @@ st.markdown("""
     max-width: 100% !important;
   }
 
-  /* Hide only specific chrome — keep header for sidebar toggle */
   #MainMenu { visibility: hidden; }
   footer { visibility: hidden; }
   .stDeployButton { display: none !important; }
@@ -53,7 +52,6 @@ st.markdown("""
     opacity: 1 !important;
   }
 
-  /* Sidebar */
   div[data-testid="stSidebar"] {
     display: block !important;
     visibility: visible !important;
@@ -79,7 +77,7 @@ st.markdown("""
   .hero-h1 { font-family:'Playfair Display',Georgia,serif;font-size:clamp(2.4rem,5vw,4rem);font-weight:700;color:#f5e6cc;line-height:1.15;margin:0 0 8px 0; }
   .hero-h1 em { font-style:italic;font-weight:400;color:#e8d5b0; }
   .hero-sub { font-size:15px;color:#9a8060;line-height:1.75;margin:22px 0 36px 0;max-width:480px;font-weight:300; }
-  .cta-row { display:flex;align-items:center;gap:22px;margin-bottom:44px;flex-wrap:wrap; }
+  .cta-row { display:flex;align-items:flex-start;gap:22px;margin-bottom:44px;flex-wrap:wrap; }
   .chips-label { font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:#6a5030;margin-bottom:14px;font-weight:400; }
   .chips-row { display:flex;flex-wrap:wrap;gap:10px; }
   .chip { border:1px solid #3a2010;border-radius:50px;padding:8px 18px;font-size:13px;color:#c8a878;background:rgba(255,255,255,0.02);cursor:pointer;font-family:'Inter',sans-serif; }
@@ -101,12 +99,45 @@ st.markdown("""
   .stat-item { text-align:left; }
   .stat-num { font-family:'Playfair Display',serif;font-size:1.8rem;color:#ffd700;font-weight:700;line-height:1; }
   .stat-label { font-size:11px;color:#6a5030;letter-spacing:.1em;text-transform:uppercase;margin-top:4px; }
+
+  /* Featured shloka mini-card next to CTA button */
+  .hero-verse-chip {
+    background: linear-gradient(135deg, rgba(50,20,0,0.85), rgba(80,35,0,0.7));
+    border: 1px solid rgba(255,160,40,0.25);
+    border-radius: 16px;
+    padding: 14px 20px;
+    max-width: 320px;
+    backdrop-filter: blur(4px);
+  }
+  .hero-verse-chip .hvc-sanskrit {
+    font-family: 'Playfair Display', serif;
+    font-size: 15px;
+    color: #f5c97a;
+    line-height: 1.6;
+    margin: 0 0 5px 0;
+  }
+  .hero-verse-chip .hvc-english {
+    font-size: 12px;
+    color: #9a7a50;
+    font-style: italic;
+    line-height: 1.5;
+    margin: 0 0 4px 0;
+  }
+  .hero-verse-chip .hvc-ref {
+    font-size: 10px;
+    color: #6a4a20;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    margin: 0;
+  }
+
   @media (max-width:768px) {
     .hero-wrap { flex-direction:column;padding:40px 5vw;min-height:auto; }
     .hero-right { width:100%; }
     .hero-h1 { font-size:2rem; }
     .input-section { padding:50px 5vw 40px 5vw; }
     .stats-bar { gap:24px; }
+    .hero-verse-chip { max-width:100%; }
   }
 </style>
 """, unsafe_allow_html=True)
@@ -225,18 +256,10 @@ def get_sanskrit_display(shloka):
 
 
 def build_voice_script(shloka):
-    """
-    Build TTS script that recites:
-    1. Chapter/Verse announcement
-    2. The Sanskrit shloka (Devanagari via ElevenLabs multilingual, or transliteration)
-    3. English meaning
-    """
     ch, v = shloka["chapter"], shloka["verse"]
     meaning = clean_meaning(shloka.get("meaning", ""))
     sanskrit_text, sanskrit_type = get_sanskrit_display(shloka)
-
     if sanskrit_type == "devanagari" and sanskrit_text:
-        # ElevenLabs multilingual_v2 can pronounce Devanagari directly
         script = (
             f"Chapter {ch}, Verse {v}. "
             f"{sanskrit_text} "
@@ -244,7 +267,6 @@ def build_voice_script(shloka):
             f"... Contemplate on this wisdom."
         )
     elif sanskrit_type == "transliteration" and sanskrit_text:
-        # Recite the romanised transliteration slowly
         script = (
             f"Chapter {ch}, Verse {v}. "
             f"{sanskrit_text} "
@@ -266,7 +288,6 @@ def get_elevenlabs_audio(text, voice_id):
         if not api_key: return None
         url = f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}"
         headers = {"xi-api-key": api_key, "Content-Type": "application/json"}
-        # Use multilingual_v2 so Devanagari Sanskrit is pronounced correctly
         payload = {
             "text": text,
             "model_id": "eleven_multilingual_v2",
@@ -286,17 +307,12 @@ def get_shloka_audio(shloka):
         data = open(cache_file, "rb").read()
         if is_valid_mp3(data): return data
         os.remove(cache_file)
-
     script = build_voice_script(shloka)
-
-    # 1️⃣ ElevenLabs (multilingual, handles Devanagari)
     for vid in GURU_VOICES:
         audio = get_elevenlabs_audio(script, vid)
         if audio:
             open(cache_file, "wb").write(audio)
             return audio
-
-    # 2️⃣ Edge TTS (Hindi voice for Devanagari, else English)
     sanskrit_text, sanskrit_type = get_sanskrit_display(shloka)
     edge_voice = "hi-IN-MadhurNeural" if sanskrit_type == "devanagari" else EDGE_TTS_SHLOKA_VOICE
     try:
@@ -315,8 +331,6 @@ def get_shloka_audio(shloka):
             return data
     except Exception:
         pass
-
-    # 3️⃣ gTTS fallback — use Hindi if Devanagari present (pronounces Sanskrit better)
     try:
         gtts_lang = "hi" if sanskrit_type == "devanagari" else "en"
         gtts_text = (sanskrit_text + " ... " + clean_meaning(shloka.get("meaning", ""))) if sanskrit_text else clean_meaning(shloka.get("meaning", ""))
@@ -351,11 +365,9 @@ def make_guidance_voice(script):
 
 
 def render_shloka_card(s, show_chapter=True):
-    """Render a full shloka card with Sanskrit + transliteration label + meaning."""
     chapter_name = CHAPTER_NAMES.get(s["chapter"], "") if show_chapter else ""
     meaning = clean_meaning(s.get("meaning", ""))
     sanskrit_text, sanskrit_type = get_sanskrit_display(s)
-
     if sanskrit_type == "devanagari":
         sanskrit_html = f"<p style='color:#e8a060;font-size:22px;font-family:serif;line-height:2.0;margin:0 0 4px 0;letter-spacing:0.03em;'>{sanskrit_text}</p>"
         sanskrit_label = ""
@@ -365,7 +377,6 @@ def render_shloka_card(s, show_chapter=True):
     else:
         sanskrit_html = "<p style='color:#4a3020;font-size:13px;font-style:italic;margin:0 0 4px 0;'>[ Sanskrit text not available ]</p>"
         sanskrit_label = ""
-
     return f"""
     <div class='shloka-box'>
       <div style='margin-bottom:14px;'>
@@ -482,14 +493,39 @@ with st.sidebar:
 
 
 # ── HERO ──
+# 5 most iconic / widely-quoted Gita shlokas for the mini-chip
 FEATURED_VERSES = [
-    {"sanskrit": "वासांसि जीर्णानि यथा विहाय।", "english": "\"As one casts off worn-out clothes, the soul takes on new forms.\"", "ref": "2.22"},
-    {"sanskrit": "कर्मण्येवाधिकारस्ते।", "english": "\"You have a right to perform your duties, but not to the fruits thereof.\"", "ref": "2.47"},
-    {"sanskrit": "यदा यदा हि धर्मस्य ग्लानिर्भवति।", "english": "\"Whenever righteousness declines, I manifest myself.\"", "ref": "4.7"},
+    {
+        "sanskrit": "कर्मण्येवाधिकारस्ते मा फलेषु कदाचन ।",
+        "english": "You have a right to perform your duties, never to the fruits.",
+        "ref": "Bhagavad Gita 2.47"
+    },
+    {
+        "sanskrit": "वासांसि जीर्णानि यथा विहाय नवानि गृह्णाति नरोऀपराणि ।",
+        "english": "As one casts off worn-out clothes, the soul casts off worn-out bodies to take new ones.",
+        "ref": "Bhagavad Gita 2.22"
+    },
+    {
+        "sanskrit": "यदा यदा हि धर्मस्य ग्लानिर्भवति भारत ।",
+        "english": "Whenever righteousness declines, I manifest myself to restore dharma.",
+        "ref": "Bhagavad Gita 4.7"
+    },
+    {
+        "sanskrit": "नैनं छिन्दन्ति शस्त्राणि नैनं दहति पावकः ।",
+        "english": "Weapons cannot cut the soul; fire cannot burn it — it is eternal and indestructible.",
+        "ref": "Bhagavad Gita 2.23"
+    },
+    {
+        "sanskrit": "सर्वधर्मान् परित्यज्य मामेकं शरणं व्रज ।",
+        "english": "Abandon all duties and surrender unto Me alone — I shall liberate you from all sins.",
+        "ref": "Bhagavad Gita 18.66"
+    },
 ]
 import hashlib
 hour_seed = int(hashlib.md5(datetime.now().strftime("%Y%m%d%H").encode()).hexdigest(), 16)
 featured = FEATURED_VERSES[hour_seed % len(FEATURED_VERSES)]
+# Second verse for the image overlay (different from the mini-chip)
+overlay = FEATURED_VERSES[(hour_seed + 1) % len(FEATURED_VERSES)]
 krishna_b64 = img_to_b64(IMGS["krishna_flute"])
 L = LABELS[st.session_state.language]
 
@@ -500,8 +536,12 @@ st.markdown(f"""
     <h1 class="hero-h1">{L['hero_h1_line1']}<br><em>{L['hero_h1_line2']}</em></h1>
     <p class="hero-sub">{L['hero_sub']}</p>
     <div class="cta-row">
-      <span style="background:linear-gradient(135deg,#e87000,#ffc200);color:#1a0800;font-weight:600;font-size:15px;padding:14px 32px;border-radius:50px;">{L['btn_seek']} &rarr;</span>
-      <span style="color:#7a5a30;font-size:14px;">Or read a verse first</span>
+      <span style="background:linear-gradient(135deg,#e87000,#ffc200);color:#1a0800;font-weight:600;font-size:15px;padding:14px 32px;border-radius:50px;white-space:nowrap;">{L['btn_seek']} &rarr;</span>
+      <div class="hero-verse-chip">
+        <p class="hvc-sanskrit">{featured['sanskrit']}</p>
+        <p class="hvc-english">{featured['english']}</p>
+        <p class="hvc-ref">— {featured['ref']}</p>
+      </div>
     </div>
     <p class="chips-label">{L['feeling_label']}</p>
     <div class="chips-row">
@@ -518,9 +558,9 @@ st.markdown(f"""
     <div class="krishna-card">
       <img src="data:image/jpeg;base64,{krishna_b64}" alt="Lord Krishna" />
       <div class="verse-overlay">
-        <div class="verse-sanskrit">{featured['sanskrit']}</div>
-        <div class="verse-english">{featured['english']}</div>
-        <div class="verse-ref">— {featured['ref']}</div>
+        <div class="verse-sanskrit">{overlay['sanskrit']}</div>
+        <div class="verse-english">{overlay['english']}</div>
+        <div class="verse-ref">— {overlay['ref']}</div>
       </div>
     </div>
   </div>
@@ -604,7 +644,6 @@ if st.session_state.result:
             else:
                 st.markdown(f"<span style='color:#ff6b6b;font-size:13px;'>{L['btn_saved_fav']}</span>", unsafe_allow_html=True)
 
-        # ── Audio: clears cache so new build_voice_script is used ──
         vkey = f"s_{s['chapter']}_{s['verse']}"
         if vkey not in st.session_state.voice_audio:
             with st.spinner("🕉️ Loading Sanskrit recitation…"):

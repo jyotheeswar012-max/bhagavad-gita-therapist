@@ -209,29 +209,55 @@ def clean_meaning(text):
 
 
 def get_sanskrit_display(shloka):
-    """Return Sanskrit text for display. Falls back to transliteration, then a styled placeholder."""
+    """Return (text, type) for display. type is 'devanagari', 'transliteration', or 'none'."""
     sanskrit = (shloka.get("sanskrit") or "").strip()
-    # Check it has actual Devanagari characters
     if sanskrit and re.search(r"[\u0900-\u097F]", sanskrit):
         return sanskrit, "devanagari"
-    # Try transliteration field if present
     transliteration = (shloka.get("transliteration") or "").strip()
     if transliteration:
         return transliteration, "transliteration"
-    # Try roman/IAST field
     roman = (shloka.get("roman") or shloka.get("iast") or "").strip()
     if roman:
         return roman, "transliteration"
-    # Last resort: use the raw sanskrit field even if it's latin
     if sanskrit:
         return sanskrit, "transliteration"
     return "", "none"
 
 
 def build_voice_script(shloka):
+    """
+    Build TTS script that recites:
+    1. Chapter/Verse announcement
+    2. The Sanskrit shloka (Devanagari via ElevenLabs multilingual, or transliteration)
+    3. English meaning
+    """
     ch, v = shloka["chapter"], shloka["verse"]
     meaning = clean_meaning(shloka.get("meaning", ""))
-    return f"Shloka. Chapter {ch}, Verse {v}. The Lord says ... {meaning} Contemplate on this."
+    sanskrit_text, sanskrit_type = get_sanskrit_display(shloka)
+
+    if sanskrit_type == "devanagari" and sanskrit_text:
+        # ElevenLabs multilingual_v2 can pronounce Devanagari directly
+        script = (
+            f"Chapter {ch}, Verse {v}. "
+            f"{sanskrit_text} "
+            f"... meaning ... {meaning} "
+            f"... Contemplate on this wisdom."
+        )
+    elif sanskrit_type == "transliteration" and sanskrit_text:
+        # Recite the romanised transliteration slowly
+        script = (
+            f"Chapter {ch}, Verse {v}. "
+            f"{sanskrit_text} "
+            f"... meaning ... {meaning} "
+            f"... Contemplate on this wisdom."
+        )
+    else:
+        script = (
+            f"Chapter {ch}, Verse {v}. "
+            f"The Lord says ... {meaning} "
+            f"Contemplate on this wisdom."
+        )
+    return script
 
 
 def get_elevenlabs_audio(text, voice_id):
@@ -240,7 +266,12 @@ def get_elevenlabs_audio(text, voice_id):
         if not api_key: return None
         url = f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}"
         headers = {"xi-api-key": api_key, "Content-Type": "application/json"}
-        payload = {"text": text, "model_id": "eleven_multilingual_v2", "voice_settings": {"stability": 0.85, "similarity_boost": 0.80, "style": 0.40, "use_speaker_boost": True}}
+        # Use multilingual_v2 so Devanagari Sanskrit is pronounced correctly
+        payload = {
+            "text": text,
+            "model_id": "eleven_multilingual_v2",
+            "voice_settings": {"stability": 0.85, "similarity_boost": 0.80, "style": 0.40, "use_speaker_boost": True}
+        }
         r = requests.post(url, json=payload, headers=headers, timeout=25)
         if r.status_code == 200 and is_valid_mp3(r.content): return r.content
     except Exception:
@@ -255,17 +286,27 @@ def get_shloka_audio(shloka):
         data = open(cache_file, "rb").read()
         if is_valid_mp3(data): return data
         os.remove(cache_file)
+
     script = build_voice_script(shloka)
+
+    # 1️⃣ ElevenLabs (multilingual, handles Devanagari)
     for vid in GURU_VOICES:
         audio = get_elevenlabs_audio(script, vid)
         if audio:
             open(cache_file, "wb").write(audio)
             return audio
+
+    # 2️⃣ Edge TTS (Hindi voice for Devanagari, else English)
+    sanskrit_text, sanskrit_type = get_sanskrit_display(shloka)
+    edge_voice = "hi-IN-MadhurNeural" if sanskrit_type == "devanagari" else EDGE_TTS_SHLOKA_VOICE
     try:
         with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as tmp:
             tmp_path = tmp.name
         async def _g():
-            await edge_tts.Communicate(script, EDGE_TTS_SHLOKA_VOICE, rate=EDGE_TTS_SHLOKA_RATE, pitch=EDGE_TTS_SHLOKA_PITCH).save(tmp_path)
+            await edge_tts.Communicate(
+                script, edge_voice,
+                rate=EDGE_TTS_SHLOKA_RATE, pitch=EDGE_TTS_SHLOKA_PITCH
+            ).save(tmp_path)
         asyncio.run(_g())
         data = open(tmp_path, "rb").read()
         os.unlink(tmp_path)
@@ -274,8 +315,12 @@ def get_shloka_audio(shloka):
             return data
     except Exception:
         pass
+
+    # 3️⃣ gTTS fallback — use Hindi if Devanagari present (pronounces Sanskrit better)
     try:
-        tts = gTTS(text=clean_meaning(shloka.get("meaning", "")), lang="en", slow=False)
+        gtts_lang = "hi" if sanskrit_type == "devanagari" else "en"
+        gtts_text = (sanskrit_text + " ... " + clean_meaning(shloka.get("meaning", ""))) if sanskrit_text else clean_meaning(shloka.get("meaning", ""))
+        tts = gTTS(text=gtts_text, lang=gtts_lang, slow=True)
         buf = io.BytesIO()
         tts.write_to_fp(buf)
         buf.seek(0)
@@ -352,7 +397,6 @@ for k, v in DEFAULTS.items():
 
 # ── SIDEBAR ──
 with st.sidebar:
-    # ── Language Selector ──
     lang = st.selectbox(
         "🌐 Language / भाषा / భాష",
         LANGUAGES,
@@ -366,7 +410,6 @@ with st.sidebar:
 
     st.image(IMGS["krishna_flute"], use_container_width=True)
 
-    # ── Music ──
     st.markdown(f"## {L['sidebar_music']}")
     selected_track = st.selectbox(L["sidebar_choose_music"], list(MUSIC_TRACKS.keys()), index=0)
     track_path = MUSIC_TRACKS[selected_track]
@@ -382,7 +425,6 @@ with st.sidebar:
 
     st.markdown("---")
 
-    # ── Chapters ──
     st.markdown(f"## {L['sidebar_chapters']}")
     selected_chapter = st.selectbox(
         L["sidebar_jump_chapter"],
@@ -403,7 +445,6 @@ with st.sidebar:
     st.markdown("---")
     st.markdown(f"<p style='color:#6a5030;font-size:12px;'>{t(lang, 'sidebar_shlokas_stat', n=len(SHLOKAS))}</p>", unsafe_allow_html=True)
 
-    # ── Favourites ──
     if st.session_state.favourites:
         st.markdown("---")
         st.markdown(f"## {L['sidebar_favourites']} ({len(st.session_state.favourites)})")
@@ -422,7 +463,6 @@ with st.sidebar:
         st.markdown(f"## {L['sidebar_favourites']}")
         st.caption(L["no_favourites"])
 
-    # ── Session History ──
     if st.session_state.chat_history:
         st.markdown("---")
         st.markdown(f"## {L['sidebar_history']}")
@@ -435,7 +475,6 @@ with st.sidebar:
                     meaning = clean_meaning(s.get("meaning", ""))
                     st.markdown(f"- Ch {s['chapter']}.{s['verse']}: {meaning[:55]}...")
 
-    # ── Analytics (owner only) ──
     render_analytics(st, lang)
 
     st.markdown("---")
@@ -524,7 +563,6 @@ if seek:
             lang_instruction = L.get("ai_lang_instruction", "Respond in simple English.")
             st.session_state.result = get_gita_guidance(user_input, lang=lang, lang_instruction=lang_instruction)
         st.session_state.voice_audio = {}
-        # Log analytics
         themes = [th for s in st.session_state.result["shlokas"] for th in s.get("themes", [])]
         log_query(themes, language=lang, emotion=st.session_state.preset[:40] if st.session_state.preset else "")
         st.session_state.chat_history.append({
@@ -554,7 +592,6 @@ if st.session_state.result:
     for i, s in enumerate(result["shlokas"]):
         st.markdown(render_shloka_card(s), unsafe_allow_html=True)
 
-        # ── Favourite button ──
         fav_key = f"{s['chapter']}_{s['verse']}"
         already_saved = any(f"{x['chapter']}_{x['verse']}" == fav_key for x in st.session_state.favourites)
         fa_col1, fa_col2 = st.columns([1, 5])
@@ -567,15 +604,15 @@ if st.session_state.result:
             else:
                 st.markdown(f"<span style='color:#ff6b6b;font-size:13px;'>{L['btn_saved_fav']}</span>", unsafe_allow_html=True)
 
-        # ── Audio ──
+        # ── Audio: clears cache so new build_voice_script is used ──
         vkey = f"s_{s['chapter']}_{s['verse']}"
         if vkey not in st.session_state.voice_audio:
-            with st.spinner(f"🕉️ Loading recitation…"):
+            with st.spinner("🕉️ Loading Sanskrit recitation…"):
                 audio = get_shloka_audio(s)
             if audio:
                 st.session_state.voice_audio[vkey] = audio
         if vkey in st.session_state.voice_audio:
-            st.markdown(f"<p style='color:#6a5030;font-size:12px;margin:8px 0 2px 0;'>🔉 Ch {s['chapter']}.{s['verse']}</p>", unsafe_allow_html=True)
+            st.markdown(f"<p style='color:#6a5030;font-size:12px;margin:8px 0 2px 0;'>🔉 Ch {s['chapter']}.{s['verse']} — Sanskrit recitation</p>", unsafe_allow_html=True)
             st.audio(st.session_state.voice_audio[vkey], format="audio/mp3")
         else:
             st.caption("⚠️ Audio unavailable.")

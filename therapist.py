@@ -74,7 +74,6 @@ def _tfidf_scores(query: str, docs: list[str]) -> list[float]:
     if not query_tokens:
         return [0.0] * N
 
-    # IDF: log(N / df) for each term
     df: dict[str, int] = {}
     for tokens in all_docs_tokens:
         for term in set(tokens):
@@ -92,7 +91,6 @@ def _tfidf_scores(query: str, docs: list[str]) -> list[float]:
     scores = []
     for tokens in all_docs_tokens:
         doc_vec = tfidf_vec(tokens)
-        # Cosine similarity
         dot    = sum(query_vec.get(t, 0) * doc_vec.get(t, 0) for t in query_vec)
         norm_q = math.sqrt(sum(v**2 for v in query_vec.values()))
         norm_d = math.sqrt(sum(v**2 for v in doc_vec.values()))
@@ -101,49 +99,32 @@ def _tfidf_scores(query: str, docs: list[str]) -> list[float]:
     return scores
 
 
-# Pre-build shloka documents once at import time (not on every call)
 _SHLOKA_DOCS = _build_shloka_docs()
 
 
 def _keyword_score(user_lower: str, shloka: dict) -> int:
-    """Secondary score: exact theme keyword matches in user text."""
     return sum(1 for theme in shloka["themes"] if theme in user_lower)
 
 
 def find_relevant_shlokas(user_input: str, top_n: int = TOP_N_SHLOKAS) -> list:
-    """
-    Find the most relevant shlokas for a given user input.
-
-    Strategy:
-      - Primary:   TF-IDF cosine similarity (semantic)
-      - Secondary: Keyword overlap (exact theme match) as tiebreaker
-      - Fallback:  Return canonical shlokas if combined score is zero
-    """
     user_lower  = user_input.lower()
     tfidf       = _tfidf_scores(user_input, _SHLOKA_DOCS)
     kw_scores   = [_keyword_score(user_lower, s) for s in SHLOKAS]
-
-    # Combined score: TF-IDF (weighted 70%) + keyword overlap (30%)
     max_kw      = max(kw_scores) or 1
     combined    = [
         0.7 * tfidf[i] + 0.3 * (kw_scores[i] / max_kw)
         for i in range(len(SHLOKAS))
     ]
-
-    # Pick top_n by combined score
     ranked_indices = sorted(range(len(SHLOKAS)), key=lambda i: combined[i], reverse=True)
     top_indices    = ranked_indices[:top_n]
-
-    # If all scores are effectively zero, use canonical fallbacks
     if all(combined[i] < 0.01 for i in top_indices):
         return [SHLOKAS[i] for i in FALLBACK_SHLOKA_INDICES]
-
     return [SHLOKAS[i] for i in top_indices]
 
 
-# ── Guidance generation ──────────────────────────────────────────────────────────
+# ── Guidance generation ──────────────────────────────────────────────────────
 
-def get_gita_guidance(user_input: str) -> dict:
+def get_gita_guidance(user_input: str, lang: str = "English", lang_instruction: str = "Respond in simple English.") -> dict:
     """Return dict with 'shlokas' (list) and 'guidance' (str)."""
     shlokas = find_relevant_shlokas(user_input)
 
@@ -166,7 +147,8 @@ Provide a warm, empathetic response that:
 4. Ends with a short motivational closing line
 
 Tone: Warm, wise, non-preachy. Like a wise friend, not a lecture.
-Language: Simple English. No jargon. Max 300 words."""
+{lang_instruction}
+Max 300 words."""
 
     client, error = get_groq_client()
     if not client:
@@ -176,7 +158,7 @@ Language: Simple English. No jargon. Max 300 words."""
         try:
             response = client.chat.completions.create(
                 messages=[
-                    {"role": "system", "content": "You are a compassionate Bhagavad Gita AI therapist."},
+                    {"role": "system", "content": f"You are a compassionate Bhagavad Gita AI therapist. {lang_instruction}"},
                     {"role": "user",   "content": prompt},
                 ],
                 model=model_name,
@@ -188,10 +170,9 @@ Language: Simple English. No jargon. Max 300 words."""
         except Exception as e:
             err_str = str(e)
             if "decommissioned" in err_str or "model_not_found" in err_str:
-                continue   # try next model
+                continue
             if "429" in err_str or "rate_limit" in err_str.lower():
                 return {"shlokas": shlokas, "guidance": ERRORS["rate_limit"]}
-            # Unexpected error — don't silently swallow it
             return {"shlokas": shlokas, "guidance": ERRORS["generic"]}
 
     return {"shlokas": shlokas, "guidance": ERRORS["all_models_down"]}

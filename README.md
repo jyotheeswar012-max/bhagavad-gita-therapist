@@ -31,7 +31,6 @@
 [![CI](https://github.com/jyotheeswar012-max/bhagavad-gita-therapist/actions/workflows/ci.yml/badge.svg)](https://github.com/jyotheeswar012-max/bhagavad-gita-therapist/actions/workflows/ci.yml)
 [![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-blue?logo=python&logoColor=white)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Stars](https://img.shields.io/github/stars/jyotheeswar012-max/bhagavad-gita-therapist?style=social)](https://github.com/jyotheeswar012-max/bhagavad-gita-therapist/stargazers)
 [![Last Commit](https://img.shields.io/github/last-commit/jyotheeswar012-max/bhagavad-gita-therapist?color=brightgreen)](https://github.com/jyotheeswar012-max/bhagavad-gita-therapist/commits/main)
 
 </div>

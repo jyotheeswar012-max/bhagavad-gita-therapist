@@ -6,10 +6,6 @@
 
 [![Streamlit App](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://bhagavad-gita-therapist.streamlit.app/)
 [![CI](https://github.com/jyotheeswar012-max/bhagavad-gita-therapist/actions/workflows/ci.yml/badge.svg)](https://github.com/jyotheeswar012-max/bhagavad-gita-therapist/actions/workflows/ci.yml)
-[![GitHub Stars](https://img.shields.io/github/stars/jyotheeswar012-max/bhagavad-gita-therapist?style=social)](https://github.com/jyotheeswar012-max/bhagavad-gita-therapist/stargazers)
-[![GitHub Forks](https://img.shields.io/github/forks/jyotheeswar012-max/bhagavad-gita-therapist?style=social)](https://github.com/jyotheeswar012-max/bhagavad-gita-therapist/network/members)
-[![GitHub Issues](https://img.shields.io/github/issues/jyotheeswar012-max/bhagavad-gita-therapist?color=orange)](https://github.com/jyotheeswar012-max/bhagavad-gita-therapist/issues)
-[![Last Commit](https://img.shields.io/github/last-commit/jyotheeswar012-max/bhagavad-gita-therapist?color=brightgreen)](https://github.com/jyotheeswar012-max/bhagavad-gita-therapist/commits/main)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-blue?logo=python&logoColor=white)](https://www.python.org/)
 [![Made with ❤️](https://img.shields.io/badge/Made%20with-%E2%9D%A4%EF%B8%8F-red)](https://github.com/jyotheeswar012-max/bhagavad-gita-therapist)

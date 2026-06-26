@@ -208,6 +208,26 @@ def clean_meaning(text):
     return " ".join(english_like).strip() or "English meaning unavailable."
 
 
+def get_sanskrit_display(shloka):
+    """Return Sanskrit text for display. Falls back to transliteration, then a styled placeholder."""
+    sanskrit = (shloka.get("sanskrit") or "").strip()
+    # Check it has actual Devanagari characters
+    if sanskrit and re.search(r"[\u0900-\u097F]", sanskrit):
+        return sanskrit, "devanagari"
+    # Try transliteration field if present
+    transliteration = (shloka.get("transliteration") or "").strip()
+    if transliteration:
+        return transliteration, "transliteration"
+    # Try roman/IAST field
+    roman = (shloka.get("roman") or shloka.get("iast") or "").strip()
+    if roman:
+        return roman, "transliteration"
+    # Last resort: use the raw sanskrit field even if it's latin
+    if sanskrit:
+        return sanskrit, "transliteration"
+    return "", "none"
+
+
 def build_voice_script(shloka):
     ch, v = shloka["chapter"], shloka["verse"]
     meaning = clean_meaning(shloka.get("meaning", ""))
@@ -285,6 +305,35 @@ def make_guidance_voice(script):
         return None
 
 
+def render_shloka_card(s, show_chapter=True):
+    """Render a full shloka card with Sanskrit + transliteration label + meaning."""
+    chapter_name = CHAPTER_NAMES.get(s["chapter"], "") if show_chapter else ""
+    meaning = clean_meaning(s.get("meaning", ""))
+    sanskrit_text, sanskrit_type = get_sanskrit_display(s)
+
+    if sanskrit_type == "devanagari":
+        sanskrit_html = f"<p style='color:#e8a060;font-size:22px;font-family:serif;line-height:2.0;margin:0 0 4px 0;letter-spacing:0.03em;'>{sanskrit_text}</p>"
+        sanskrit_label = ""
+    elif sanskrit_type == "transliteration":
+        sanskrit_html = f"<p style='color:#e8a060;font-size:17px;font-family:Playfair Display,serif;font-style:italic;line-height:1.9;margin:0 0 4px 0;'>{sanskrit_text}</p>"
+        sanskrit_label = "<span style='color:#6a5030;font-size:11px;letter-spacing:.1em;text-transform:uppercase;'>Transliteration</span><br/>"
+    else:
+        sanskrit_html = "<p style='color:#4a3020;font-size:13px;font-style:italic;margin:0 0 4px 0;'>[ Sanskrit text not available ]</p>"
+        sanskrit_label = ""
+
+    return f"""
+    <div class='shloka-box'>
+      <div style='margin-bottom:14px;'>
+        <span style='font-family:Playfair Display,serif;font-size:1.1rem;color:#ffd700;font-weight:700;'>🕉️ Chapter {s['chapter']}, Verse {s['verse']}</span>
+        <span style='color:#4a3020;font-size:12px;margin-left:10px;'>{chapter_name}</span>
+      </div>
+      {sanskrit_label}{sanskrit_html}
+      <hr style='border:none;border-top:1px solid rgba(255,140,0,0.15);margin:12px 0;'/>
+      <p style='color:#c8a878;font-size:15px;line-height:1.8;margin:0;'><em>{meaning}</em></p>
+    </div>
+    """
+
+
 # ── Session state ──
 DEFAULTS = {
     "preset": "",
@@ -348,7 +397,8 @@ with st.sidebar:
         for s in chapter_shlokas:
             with st.expander(f"Verse {s['verse']}"):
                 meaning = clean_meaning(s.get("meaning", ""))
-                st.markdown(f"<p style='color:#ff8c00;font-size:13px;font-family:serif;line-height:1.8;'>{s['sanskrit']}</p><p style='color:#c8a878;font-size:12px;'><b>Meaning:</b> {meaning}</p>", unsafe_allow_html=True)
+                sanskrit_text, _ = get_sanskrit_display(s)
+                st.markdown(f"<p style='color:#ff8c00;font-size:13px;font-family:serif;line-height:1.8;'>{sanskrit_text or '[ Sanskrit unavailable ]'}</p><p style='color:#c8a878;font-size:12px;'><b>Meaning:</b> {meaning}</p>", unsafe_allow_html=True)
 
     st.markdown("---")
     st.markdown(f"<p style='color:#6a5030;font-size:12px;'>{t(lang, 'sidebar_shlokas_stat', n=len(SHLOKAS))}</p>", unsafe_allow_html=True)
@@ -359,8 +409,9 @@ with st.sidebar:
         st.markdown(f"## {L['sidebar_favourites']} ({len(st.session_state.favourites)})")
         for idx, fav in enumerate(st.session_state.favourites):
             meaning = clean_meaning(fav.get("meaning", ""))
+            sanskrit_text, _ = get_sanskrit_display(fav)
             with st.expander(f"🕉️ Ch {fav['chapter']}.{fav['verse']}"):
-                st.markdown(f"<p style='color:#ff8c00;font-size:13px;font-family:serif;'>{fav['sanskrit']}</p><p style='color:#c8a878;font-size:12px;'>{meaning[:100]}...</p>", unsafe_allow_html=True)
+                st.markdown(f"<p style='color:#ff8c00;font-size:13px;font-family:serif;'>{sanskrit_text or '[ Sanskrit unavailable ]'}</p><p style='color:#c8a878;font-size:12px;'>{meaning[:100]}...</p>", unsafe_allow_html=True)
                 if st.button("🗑️ Remove", key=f"rm_fav_{idx}"):
                     st.session_state.favourites.pop(idx)
                     st.rerun()
@@ -458,7 +509,7 @@ for i, (label, val) in enumerate(EMOTIONS.items()):
 
 user_input = st.text_area(
     "", value=st.session_state.preset,
-    placeholder="Share what’s on your mind…",
+    placeholder="Share what's on your mind…",
     height=140, label_visibility="collapsed",
 )
 col1, col2, col3 = st.columns([1.5, 2, 1.5])
@@ -501,19 +552,7 @@ if st.session_state.result:
     """, unsafe_allow_html=True)
 
     for i, s in enumerate(result["shlokas"]):
-        chapter_name = CHAPTER_NAMES.get(s["chapter"], "")
-        meaning = clean_meaning(s.get("meaning", ""))
-        st.markdown(f"""
-        <div class='shloka-box'>
-          <div style='margin-bottom:16px;'>
-            <span style='font-family:Playfair Display,serif;font-size:1.1rem;color:#ffd700;font-weight:700;'>🕉️ Chapter {s['chapter']}, Verse {s['verse']}</span>
-            <span style='color:#4a3020;font-size:12px;margin-left:10px;'>{chapter_name}</span>
-          </div>
-          <p style='color:#e8a060;font-size:19px;font-family:Playfair Display,serif;line-height:1.9;margin:0 0 16px 0;'>{s['sanskrit']}</p>
-          <hr style='border:none;border-top:1px solid rgba(255,140,0,0.15);margin:0 0 16px 0;'/>
-          <p style='color:#c8a878;font-size:15px;line-height:1.8;margin:0;'><em>{meaning}</em></p>
-        </div>
-        """, unsafe_allow_html=True)
+        st.markdown(render_shloka_card(s), unsafe_allow_html=True)
 
         # ── Favourite button ──
         fav_key = f"{s['chapter']}_{s['verse']}"
@@ -596,9 +635,7 @@ if st.session_state.chat_history:
         with st.expander(f"Turn {idx+1}{fb_icon}  —  \"{entry['input'][:55]}…\"  ({entry['ts']}) [{entry_lang}]", expanded=False):
             st.markdown(f"**You asked:** {entry['input']}")
             for s in entry["shlokas"]:
-                chapter_name = CHAPTER_NAMES.get(s["chapter"], "")
-                meaning = clean_meaning(s.get("meaning", ""))
-                st.markdown(f"<div class='shloka-box' style='padding:16px;'><b style='color:#ffd700;'>🕉️ Ch {s['chapter']}, Verse {s['verse']}</b><span style='color:#4a3020;font-size:12px;'> — {chapter_name}</span><br><p style='color:#e8a060;font-size:15px;font-family:serif;line-height:1.9;margin:10px 0 6px 0;'>{s['sanskrit']}</p><hr style='border:none;border-top:1px solid rgba(255,140,0,0.1);'/><span style='color:#c8a878;font-size:14px;'><em>{meaning}</em></span></div>", unsafe_allow_html=True)
+                st.markdown(render_shloka_card(s), unsafe_allow_html=True)
             st.markdown(f"<div class='guidance-box' style='padding:16px;'><p style='color:#c8d8f0;font-size:14px;font-style:italic;margin:0;'>{entry['guidance'].replace(chr(10), '<br>')}</p></div>", unsafe_allow_html=True)
 
 

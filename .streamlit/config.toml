@@ -1,0 +1,23 @@
+[global]
+# Disable usage stats (optional, keeps app clean)
+disableWatchdogWarning = false
+
+[server]
+headless = true
+enableCORS = false
+enableXsrfProtection = false
+
+[browser]
+gatherUsageStats = false
+
+[client]
+showErrorDetails = true
+toolbarMode = "minimal"
+
+[theme]
+base = "dark"
+primaryColor = "#e87000"
+backgroundColor = "#0d0500"
+secondaryBackgroundColor = "#1a0800"
+textColor = "#f5e6cc"
+font = "serif"

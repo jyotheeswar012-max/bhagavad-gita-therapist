@@ -34,10 +34,30 @@ st.markdown("""
     padding: 0 !important;
     max-width: 100% !important;
   }
-  #MainMenu, footer, header { visibility: hidden; }
-  .stDeployButton { display: none; }
 
-  /* ── Force sidebar always visible ── */
+  /* ── Hide only specific UI chrome — NOT header (sidebar toggle lives there) ── */
+  #MainMenu { visibility: hidden; }
+  footer { visibility: hidden; }
+  .stDeployButton { display: none !important; }
+  /* Hide the top bar title text but keep the sidebar toggle button */
+  header[data-testid="stHeader"] {
+    background: transparent !important;
+  }
+  /* Hide just the Streamlit logo/title inside header, not the whole header */
+  header[data-testid="stHeader"] a,
+  header[data-testid="stHeader"] span {
+    visibility: hidden !important;
+  }
+  /* BUT keep the sidebar collapse/expand button fully visible */
+  button[data-testid="collapsedControl"],
+  button[kind="header"],
+  [data-testid="stSidebarCollapsedControl"] {
+    visibility: visible !important;
+    display: flex !important;
+    opacity: 1 !important;
+  }
+
+  /* ── Sidebar ── */
   div[data-testid="stSidebar"] {
     display: block !important;
     visibility: visible !important;
@@ -46,17 +66,8 @@ st.markdown("""
     border-right: 1px solid #2a1200 !important;
     min-width: 240px !important;
   }
-  div[data-testid="stSidebar"][aria-expanded="false"] {
-    width: 300px !important;
-    transform: none !important;
-  }
   div[data-testid="stSidebar"] * { color: #d4a96a !important; }
   div[data-testid="stSidebar"] h2 { color: #ffd700 !important; font-family: 'Playfair Display', serif !important; }
-  /* Show the sidebar toggle button */
-  button[data-testid="collapsedControl"] {
-    display: flex !important;
-    visibility: visible !important;
-  }
 
   .hero-wrap {
     min-height: 100vh;

@@ -13,13 +13,11 @@ AUDIO_CACHE_DIR = "/tmp/gita_audio"
 # Prevents unbounded disk usage on long-running deployments
 AUDIO_CACHE_MAX_FILES = 50
 
-# ElevenLabs voice IDs (deep, gravelly, resonant male — guru-style)
-# Tried in order; falls back to Edge TTS then gTTS if all fail
-ELEVENLABS_VOICES = [
-    "N2lVS1w4EtoT3dr4eOWO",  # Callum
-    "JBFqnCBsd6RMkjVDRZzb",  # George
-    "onwK4e9ZLuTAKqWW03F9",  # Daniel
-]
+# Sarvam AI Bulbul v3 voice configuration
+SARVAM_API_URL = "https://api.sarvam.ai/text-to-speech"
+SARVAM_MODEL = "bulbul:v3"
+SARVAM_SPEAKER = "shubh"
+SARVAM_SAMPLE_RATE = 24000
 
 # Edge TTS voice for shloka recitation
 EDGE_TTS_SHLOKA_VOICE = "en-IN-PrabhatNeural"

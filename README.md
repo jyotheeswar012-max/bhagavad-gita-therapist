@@ -47,7 +47,7 @@ You open the app. You type what's hurting — maybe it's anxiety about the futur
 
 The app reads your words. A **TF-IDF engine** silently searches through **700+ Bhagavad Gita shlokas**, each mapped to dozens of emotional themes. It surfaces the verses that speak directly to *your* pain.
 
-Then **Groq AI** — powered by LLaMA 3.3-70B — channels those shlokas into warm, practical, non-preachy guidance. Not a lecture. Not a sermon. A wise friend, fluent in 5,000-year-old truth.
+Then **Groq AI** — powered by OpenAI GPT-OSS 120B — channels those shlokas into warm, practical, non-preachy guidance. Not a lecture. Not a sermon. A wise friend, fluent in 5,000-year-old truth.
 
 The words arrive in **English, हिंदी, or తెలుగు**. A deep voice recites the Sanskrit. The flute plays softly in the background.
 
@@ -70,7 +70,7 @@ You type your pain
                │  top 2 most relevant shlokas
                ▼
 ┌─────────────────────────────┐
-│  🤖  Groq AI  (LLaMA 3.3)  │ ◄─── model config + prompts
+│  🤖  Groq AI  (GPT-OSS 120B)  │ ◄─── model config + prompts
 │   compassionate guidance    │      (config.py + therapist.py)
 └──────────────┬──────────────┘
                │
@@ -78,7 +78,7 @@ You type your pain
 ┌─────────────────────────────┐
 │  🎨  Streamlit UI (app.py)  │
 │                             │
-│  Sanskrit verse  +  audio   │ ◄─── ElevenLabs / Edge TTS / gTTS
+│  Sanskrit verse  +  audio   │ ◄─── Sarvam AI / Edge TTS / gTTS
 │  AI guidance in your lang   │ ◄─── i18n.py (EN / HI / TE)
 │  Save ❤️  Export 📥  Share  │ ◄─── export_utils.py
 │  Background music 🎵        │ ◄─── music.py
@@ -104,8 +104,8 @@ You type your pain
 | 🌐 | **Trilingual** | Full UI + AI responses in English, हिंदी & తెలుగు — live switch |
 | 💛 | **12 Emotion Chips** | Tap Anxious / Heartbroken / Lost / Rage — or type freely |
 | 🧠 | **Smart Shloka Matching** | TF-IDF cosine similarity across 700+ shlokas, 100+ themes |
-| 🤖 | **Groq AI Guidance** | LLaMA 3.3-70B — warm, empathetic, actionable wisdom |
-| 🎙️ | **Sanskrit Voice** | ElevenLabs guru voice → Edge TTS → gTTS (triple fallback) |
+| 🤖 | **Groq AI Guidance** | OpenAI GPT-OSS 120B — warm, empathetic, actionable wisdom |
+| 🎙️ | **Sanskrit Voice** | Sarvam AI Bulbul v3 → Edge TTS → gTTS (triple fallback) |
 | ❤️ | **Save Favourites** | Bookmark verses, export them as `.json` anytime |
 | 📚 | **Chapter Browser** | Read all 18 chapters from the sidebar |
 | 💬 | **Session Memory** | All turns saved with timestamps, language, feedback |
@@ -185,7 +185,7 @@ streamlit run app.py
 
 ```toml
 GROQ_API_KEY      = "gsk_..."
-ELEVENLABS_API_KEY = "..."        # optional — for premium Sanskrit voice
+SARVAM_API_KEY     = "..."        # for Sarvam Bulbul v3 voice
 OWNER_PIN          = "yourpin"    # optional — for analytics access
 ```
 
@@ -228,9 +228,9 @@ bhagavad-gita-therapist/
 | Layer | Tool |
 |-------|------|
 | UI | [Streamlit](https://streamlit.io) |
-| AI Brain | [Groq](https://groq.com) — LLaMA 3.3-70B |
+| AI Brain | [Groq](https://groq.com) — OpenAI GPT-OSS 120B |
 | Shloka Matching | Pure Python TF-IDF (no ML deps) |
-| Voice #1 | [ElevenLabs](https://elevenlabs.io) — guru-style deep TTS |
+| Voice #1 | [Sarvam AI](https://sarvam.ai) — Bulbul v3 Indian-language TTS |
 | Voice #2 | [Edge TTS](https://github.com/rany2/edge-tts) — en-IN-PrabhatNeural |
 | Voice #3 | [gTTS](https://gtts.readthedocs.io/) — Google fallback |
 | PDF | [fpdf2](https://pyfpdf.github.io/fpdf2/) |
@@ -318,3 +318,4 @@ I manifest myself.
 ✨ **Tat Tvam Asi — Thou Art That** ✨
 
 </div>
+

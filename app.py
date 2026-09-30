@@ -17,6 +17,9 @@ from PIL import Image, ImageDraw, ImageFont
 from datetime import datetime
 import base64
 import json
+from dotenv import load_dotenv
+
+load_dotenv()
 
 st.set_page_config(
     page_title="Bhagavad Gita AI Therapist",
@@ -202,18 +205,37 @@ def img_to_b64(img):
     return base64.b64encode(buf.getvalue()).decode()
 
 
-from config import ELEVENLABS_VOICES as GURU_VOICES
 from config import (
+    SARVAM_API_URL, SARVAM_MODEL, SARVAM_SPEAKER, SARVAM_SAMPLE_RATE,
     EDGE_TTS_SHLOKA_VOICE, EDGE_TTS_SHLOKA_RATE, EDGE_TTS_SHLOKA_PITCH,
     EDGE_TTS_GUIDANCE_VOICE, EDGE_TTS_GUIDANCE_RATE, EDGE_TTS_GUIDANCE_PITCH,
 )
 
 
+def get_sarvam_api_key():
+    """Read Sarvam credentials from the environment or Streamlit secrets."""
+    key = os.getenv("SARVAM_API_KEY", "").strip()
+    if key:
+        return key
+    try:
+        return str(st.secrets.get("SARVAM_API_KEY", "")).strip()
+    except Exception:
+        # st.secrets raises locally when secrets.toml does not exist.
+        return ""
+
+
+def is_valid_wav(data):
+    return len(data) >= 12 and data[:4] == b"RIFF" and data[8:12] == b"WAVE"
+
+
 def is_valid_mp3(data):
     if len(data) < 4: return False
     if data[:3] == b"ID3": return True
-    if data[0] == 0xFF and (data[1] & 0xE0) == 0xE0: return True
-    return False
+    return data[0] == 0xFF and (data[1] & 0xE0) == 0xE0
+
+
+def audio_format(data):
+    return "audio/wav" if is_valid_wav(data) else "audio/mp3"
 
 
 def clean_meaning(text):
@@ -279,38 +301,57 @@ def build_voice_script(shloka):
     return script
 
 
-def get_elevenlabs_audio(text, voice_id):
+def get_sarvam_audio(text, language_code):
+    """Generate WAV audio with Sarvam Bulbul v3."""
+    api_key = get_sarvam_api_key()
+    if not api_key:
+        return None
+
+    payload = {
+        "text": text[:2500],
+        "model": SARVAM_MODEL,
+        "speaker": SARVAM_SPEAKER,
+        "language_code": language_code,
+        "speech_sample_rate": SARVAM_SAMPLE_RATE,
+    }
+    headers = {
+        "api-subscription-key": api_key,
+        "Content-Type": "application/json",
+    }
     try:
-        api_key = st.secrets.get("ELEVENLABS_API_KEY", "")
-        if not api_key: return None
-        url = f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}"
-        headers = {"xi-api-key": api_key, "Content-Type": "application/json"}
-        payload = {
-            "text": text,
-            "model_id": "eleven_multilingual_v2",
-            "voice_settings": {"stability": 0.85, "similarity_boost": 0.80, "style": 0.40, "use_speaker_boost": True}
-        }
-        r = requests.post(url, json=payload, headers=headers, timeout=25)
-        if r.status_code == 200 and is_valid_mp3(r.content): return r.content
+        response = requests.post(SARVAM_API_URL, json=payload, headers=headers, timeout=35)
+        if response.status_code != 200:
+            return None
+        body = response.json()
+        audio_parts = body.get("audios") or []
+        if not audio_parts:
+            return None
+        audio = base64.b64decode("".join(audio_parts))
+        return audio if is_valid_wav(audio) else None
     except Exception:
-        pass
-    return None
+        return None
 
 
 def get_shloka_audio(shloka):
     ch, v = shloka["chapter"], shloka["verse"]
-    cache_file = os.path.join(CACHE_DIR, f"{ch}_{v}.mp3")
+    cache_file = os.path.join(CACHE_DIR, f"{ch}_{v}.wav")
     if os.path.exists(cache_file):
         data = open(cache_file, "rb").read()
-        if is_valid_mp3(data): return data
+        if is_valid_wav(data):
+            return data
         os.remove(cache_file)
+
     script = build_voice_script(shloka)
-    for vid in GURU_VOICES:
-        audio = get_elevenlabs_audio(script, vid)
-        if audio:
-            open(cache_file, "wb").write(audio)
-            return audio
     sanskrit_text, sanskrit_type = get_sanskrit_display(shloka)
+    language_code = "hi-IN" if sanskrit_type == "devanagari" else "en-IN"
+
+    audio = get_sarvam_audio(script, language_code)
+    if audio:
+        open(cache_file, "wb").write(audio)
+        return audio
+
+    # Keep the existing fallbacks for deployments without a Sarvam key or
+    # when Sarvam is temporarily unavailable.
     edge_voice = "hi-IN-MadhurNeural" if sanskrit_type == "devanagari" else EDGE_TTS_SHLOKA_VOICE
     try:
         with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as tmp:
@@ -324,7 +365,6 @@ def get_shloka_audio(shloka):
         data = open(tmp_path, "rb").read()
         os.unlink(tmp_path)
         if is_valid_mp3(data):
-            open(cache_file, "wb").write(data)
             return data
     except Exception:
         pass
@@ -337,7 +377,6 @@ def get_shloka_audio(shloka):
         buf.seek(0)
         data = buf.read()
         if is_valid_mp3(data):
-            open(cache_file, "wb").write(data)
             return data
     except Exception:
         pass
@@ -345,9 +384,10 @@ def get_shloka_audio(shloka):
 
 
 def make_guidance_voice(script):
-    for vid in GURU_VOICES:
-        audio = get_elevenlabs_audio(script, vid)
-        if audio: return audio
+    audio = get_sarvam_audio(script, "en-IN")
+    if audio:
+        return audio
+
     try:
         with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as tmp:
             tmp_path = tmp.name
@@ -356,7 +396,7 @@ def make_guidance_voice(script):
         asyncio.run(_g())
         data = open(tmp_path, "rb").read()
         os.unlink(tmp_path)
-        return data
+        return data if is_valid_mp3(data) else None
     except Exception:
         return None
 
@@ -637,13 +677,13 @@ if st.session_state.result:
 
         vkey = f"s_{s['chapter']}_{s['verse']}"
         if vkey not in st.session_state.voice_audio:
-            with st.spinner("🕉️ Loading Sanskrit recitation…"):
+            with st.spinner("🕉️ Loading Sarvam recitation…"):
                 audio = get_shloka_audio(s)
             if audio:
                 st.session_state.voice_audio[vkey] = audio
         if vkey in st.session_state.voice_audio:
             st.markdown(f"<p style='color:#6a5030;font-size:12px;margin:8px 0 2px 0;'>🔉 Ch {s['chapter']}.{s['verse']} — Sanskrit recitation</p>", unsafe_allow_html=True)
-            st.audio(st.session_state.voice_audio[vkey], format="audio/mp3")
+            st.audio(st.session_state.voice_audio[vkey], format=audio_format(st.session_state.voice_audio[vkey]))
         else:
             st.caption("⚠️ Audio unavailable.")
 
@@ -667,7 +707,7 @@ if st.session_state.result:
             st.error("❌ Voice generation failed.")
 
     if "guidance" in st.session_state.voice_audio:
-        st.audio(st.session_state.voice_audio["guidance"], format="audio/mp3")
+        st.audio(st.session_state.voice_audio["guidance"], format=audio_format(st.session_state.voice_audio["guidance"]))
 
     current_fb = st.session_state.chat_history[turn_idx].get("feedback") if st.session_state.chat_history else None
     st.markdown(f"<p style='color:#4a3020;font-size:13px;margin-top:24px;letter-spacing:.05em;'>{L['helpful_q']}</p>", unsafe_allow_html=True)
@@ -740,3 +780,4 @@ st.markdown("""
   <p style='text-align:center;color:#2a1800;font-size:12px;margin-top:24px;'>Built with ❤️ using Streamlit &amp; Groq AI · Inspired by the eternal wisdom of the Bhagavad Gita</p>
 </div>
 """, unsafe_allow_html=True)
+

@@ -22,17 +22,17 @@ ELEVENLABS_VOICES = [
 ]
 
 # Edge TTS voice for shloka recitation
-EDGE_TTS_SHLOKA_VOICE  = "en-IN-PrabhatNeural"
-EDGE_TTS_SHLOKA_RATE   = "-25%"
-EDGE_TTS_SHLOKA_PITCH  = "-10Hz"
+EDGE_TTS_SHLOKA_VOICE = "en-IN-PrabhatNeural"
+EDGE_TTS_SHLOKA_RATE = "-25%"
+EDGE_TTS_SHLOKA_PITCH = "-10Hz"
 
 # Edge TTS voice for guidance narration
 EDGE_TTS_GUIDANCE_VOICE = "en-IN-PrabhatNeural"
-EDGE_TTS_GUIDANCE_RATE  = "-20%"
+EDGE_TTS_GUIDANCE_RATE = "-20%"
 EDGE_TTS_GUIDANCE_PITCH = "-8Hz"
 
 # Font paths for PIL placeholder images (tried in order)
-FONT_PATHS_BOLD   = [
+FONT_PATHS_BOLD = [
     "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
     "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf",
 ]
@@ -43,11 +43,12 @@ FONT_PATHS_REGULAR = [
 
 # ── Groq AI ────────────────────────────────────────────────────────────────
 
-# Groq models tried in order (first available wins)
+# Current production models. Groq retired the former Llama 3.3/3.1 IDs on
+# 2026-08-16, so keep a current primary model and fallbacks here.
 GROQ_MODELS = [
-    "llama-3.3-70b-versatile",
-    "llama-3.1-8b-instant",
-    "mixtral-8x7b-32768",
+    "openai/gpt-oss-120b",
+    "openai/gpt-oss-20b",
+    "qwen/qwen3.8-27b",
 ]
 
 # Guidance response token limit
@@ -73,6 +74,11 @@ ERRORS = {
         "- **Streamlit Cloud:** App Settings → Secrets\n"
         "- **Local:** Create a `.env` file with `GROQ_API_KEY=your_key`\n\n"
         "Get a free key at [console.groq.com](https://console.groq.com)"
+    ),
+    "invalid_api_key": (
+        "🔐 **Groq API key rejected.**\n\n"
+        "Check that `GROQ_API_KEY` is valid and has not expired, then restart "
+        "the app. Create a key at [console.groq.com](https://console.groq.com/keys)."
     ),
     "rate_limit": (
         "⏳ **Groq API rate limit reached.**\n\n"

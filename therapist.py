@@ -13,6 +13,7 @@ import re
 from collections import Counter
 
 import streamlit as st
+from dotenv import load_dotenv
 from groq import Groq
 
 from gita_data import SHLOKAS
@@ -21,22 +22,33 @@ from config import (
     TOP_N_SHLOKAS, FALLBACK_SHLOKA_INDICES, ERRORS
 )
 
+# Load local .env files when running outside Streamlit Cloud. Streamlit Cloud
+# secrets are still read below and take precedence when no environment value
+# is present.
+load_dotenv()
+
 
 # ── Groq client ───────────────────────────────────────────────────────────────
 
 def get_groq_client():
     """Return (Groq client, None) or (None, error_message)."""
-    for source in [
-        lambda: st.secrets.get("GROQ_API_KEY", ""),
-        lambda: os.getenv("GROQ_API_KEY", ""),
-    ]:
-        try:
-            key = source()
-            if key:
-                return Groq(api_key=key), None
-        except Exception:
-            pass
-    return None, ERRORS["no_api_key"]
+    key = ""
+    try:
+        key = os.getenv("GROQ_API_KEY", "").strip()
+        if not key:
+            key = str(st.secrets.get("GROQ_API_KEY", "")).strip()
+    except Exception:
+        # st.secrets raises when no secrets.toml exists locally; the .env/env
+        # value above is the normal local-development path.
+        pass
+
+    if not key:
+        return None, ERRORS["no_api_key"]
+
+    try:
+        return Groq(api_key=key), None
+    except Exception:
+        return None, ERRORS["generic"]
 
 
 # ── TF-IDF semantic matching ──────────────────────────────────────────────────
@@ -59,17 +71,18 @@ def _build_shloka_docs() -> list[str]:
     """Build one rich text document per shloka (themes + meaning)."""
     docs = []
     for s in SHLOKAS:
-        theme_text  = " ".join(s["themes"]).replace("-", " ")
+        theme_text = " ".join(s["themes"]).replace("-", " ")
         meaning_text = s.get("meaning", "")
         docs.append(f"{theme_text} {meaning_text}")
     return docs
+
 
 
 def _tfidf_scores(query: str, docs: list[str]) -> list[float]:
     """Compute cosine TF-IDF similarity between query and each doc."""
     N = len(docs)
     all_docs_tokens = [_tokenize(d) for d in docs]
-    query_tokens    = _tokenize(query)
+    query_tokens = _tokenize(query)
 
     if not query_tokens:
         return [0.0] * N
@@ -91,7 +104,7 @@ def _tfidf_scores(query: str, docs: list[str]) -> list[float]:
     scores = []
     for tokens in all_docs_tokens:
         doc_vec = tfidf_vec(tokens)
-        dot    = sum(query_vec.get(t, 0) * doc_vec.get(t, 0) for t in query_vec)
+        dot = sum(query_vec.get(t, 0) * doc_vec.get(t, 0) for t in query_vec)
         norm_q = math.sqrt(sum(v**2 for v in query_vec.values()))
         norm_d = math.sqrt(sum(v**2 for v in doc_vec.values()))
         scores.append(dot / (norm_q * norm_d) if norm_q and norm_d else 0.0)
@@ -107,16 +120,16 @@ def _keyword_score(user_lower: str, shloka: dict) -> int:
 
 
 def find_relevant_shlokas(user_input: str, top_n: int = TOP_N_SHLOKAS) -> list:
-    user_lower  = user_input.lower()
-    tfidf       = _tfidf_scores(user_input, _SHLOKA_DOCS)
-    kw_scores   = [_keyword_score(user_lower, s) for s in SHLOKAS]
-    max_kw      = max(kw_scores) or 1
-    combined    = [
+    user_lower = user_input.lower()
+    tfidf = _tfidf_scores(user_input, _SHLOKA_DOCS)
+    kw_scores = [_keyword_score(user_lower, s) for s in SHLOKAS]
+    max_kw = max(kw_scores) or 1
+    combined = [
         0.7 * tfidf[i] + 0.3 * (kw_scores[i] / max_kw)
         for i in range(len(SHLOKAS))
     ]
     ranked_indices = sorted(range(len(SHLOKAS)), key=lambda i: combined[i], reverse=True)
-    top_indices    = ranked_indices[:top_n]
+    top_indices = ranked_indices[:top_n]
     if all(combined[i] < 0.01 for i in top_indices):
         return [SHLOKAS[i] for i in FALLBACK_SHLOKA_INDICES]
     return [SHLOKAS[i] for i in top_indices]
@@ -159,7 +172,7 @@ Max 300 words."""
             response = client.chat.completions.create(
                 messages=[
                     {"role": "system", "content": f"You are a compassionate Bhagavad Gita AI therapist. {lang_instruction}"},
-                    {"role": "user",   "content": prompt},
+                    {"role": "user", "content": prompt},
                 ],
                 model=model_name,
                 max_tokens=GROQ_MAX_TOKENS,
@@ -168,10 +181,14 @@ Max 300 words."""
             return {"shlokas": shlokas, "guidance": response.choices[0].message.content}
 
         except Exception as e:
-            err_str = str(e)
-            if "decommissioned" in err_str or "model_not_found" in err_str:
+            err_str = str(e).lower()
+            # Groq retires model IDs over time. Skip an unavailable model and
+            # try the next configured fallback instead of failing the request.
+            if any(marker in err_str for marker in ("decommissioned", "model_not_found", "model not found", "invalid model")):
                 continue
-            if "429" in err_str or "rate_limit" in err_str.lower():
+            if "401" in err_str or "authentication" in err_str or "invalid api key" in err_str:
+                return {"shlokas": shlokas, "guidance": ERRORS["invalid_api_key"]}
+            if "429" in err_str or "rate_limit" in err_str:
                 return {"shlokas": shlokas, "guidance": ERRORS["rate_limit"]}
             return {"shlokas": shlokas, "guidance": ERRORS["generic"]}
 
